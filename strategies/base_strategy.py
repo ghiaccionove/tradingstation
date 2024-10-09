@@ -16,14 +16,18 @@ class Valubot(BaseStrategy):
         self.threshlod = threshold
     
     
-    def generate_signal(self):
+    def generate_signal(self, symbol):
         rsi = rsi_signal(self.data, overbought=self.overbought, oversold=self.oversold)
         sar = parabolic_trend(self.data)
         volatility = volatility_signal(self.data, threshold=self.threshlod)
 
         if rsi == Signal.OVERSOLD and volatility == Signal.HIGH_VOLATILITY and sar == Signal.UP:
+            logger.info('Long conditions for Valubot Strategy')
+            logger.warning('Long conditions for Valubot Strategy in %s', symbol)
             return Signal.BUY
         elif rsi == Signal.OVERBOUGHT and volatility == Signal.HIGH_VOLATILITY and sar == Signal.DOWN:
+            logger.info('Short conditions for Valubot Strategy')
+            logger.warning('Short conditions for Valubot Strategy in %s', symbol)
             return Signal.SELL
         else:
             return 'Wait'
