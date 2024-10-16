@@ -1,20 +1,19 @@
 from logger import logger
-from utils.exchange_manager import Exchange
 from utils.data_fetcher import *
 from signals.signals_generator import *
 from strategies.base_strategy import Valubot
 
 
-def lookout():
+def spotter(exchange, fetch):
     try:
-        logger.info("Inizializzo il programma")
-        exchange = Exchange('bybit')
-        logger.info("Cerco i mercati più scambiati di oggi")
+        logger.info('Fetching symbols')
         symbols = fetch_symbols(exchange)
-        most_traded_symbols = filter_symbols_by_volume(exchange, symbols)
-        logger.info('Avvio ricerca delle condizioni di mercato')
+        if fetch == 'volume':
+            logger.info('Fetching most traded symbols')
+            symbols = filter_symbols_by_volume(exchange, symbols)
+        logger.info('Searching for market condition')
         while True:
-            for symbol in most_traded_symbols:
+            for symbol in symbols:
                 data = fetch_market_data(exchange, symbol)
                 Valubot(data, exchange).generate_signal(symbol)
     except Exception as e:
