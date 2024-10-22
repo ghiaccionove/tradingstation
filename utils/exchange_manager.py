@@ -10,5 +10,6 @@ class Exchange:
             'secret': API_KEYS[exchange_name]['api_secret'],
             'enableRateLimit': True
         })
+        self.ccxt.load_markets()
 
 
