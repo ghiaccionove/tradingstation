@@ -15,8 +15,8 @@ class OrderManager:
 
     def place_limit_order(self, symbol, side, amount, price, params={}):
         try:
-            coin_amount = self.exchange.ccxt.amount_to_precision(symbol, amount/price)
-            order = self.exchange.ccxt.create_limit_order(symbol, side, coin_amount, price, params)
+            #coin_amount = self.exchange.ccxt.amount_to_precision(symbol, amount/price) DA METTERE IN UN ALTRO MODO 
+            order = self.exchange.ccxt.create_limit_order(symbol, side, amount, price, params)
             logger.info('Limit order placed')
             return order
         except Exception as e:
@@ -28,3 +28,14 @@ class OrderManager:
             logger.info('Order deleted')
         except Exception as e:
             logger.exception('Errore durante la cancellazione')
+
+    def get_open_orders(self, symbol=None):
+        try:
+            logger.info('Recupero ordini aperti')
+            open_orders = self.exchange.ccxt.fetch_open_orders(symbol)
+            return open_orders
+        except Exception as e:
+            logger.exception('Errore nel recuperare ordini aperti')
+    
+
+

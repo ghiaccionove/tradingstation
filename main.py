@@ -1,6 +1,7 @@
 import argparse
 from modes.spotter_mode import spotter
 from modes.manual_mode import manual
+from modes.closing_mode import shutter
 from logger import logger
 from utils.exchange_manager import Exchange
 
@@ -9,8 +10,9 @@ def main():
         logger.info('Inizializzo Exchange')
         exchange = Exchange('bybit')
         parser = argparse.ArgumentParser(description='Trading Station')
+        #mode arguments
+        parser.add_argument('--mode', choices=['spotter', 'manual', 'auto', 'shutter'], help='Scegli la modalità di esecuzione')
         #spotter arguments
-        parser.add_argument('--mode', choices=['spotter', 'manual', 'auto'], help='Scegli la modalità di esecuzione')
         parser.add_argument('--fetch', choices=['all', 'volume'], default='all', help='Scegli su quali simboli prendere i dati')
         #manual arguments
         parser.add_argument('--ordertype', choices=['market', 'limit', 'cancel'], help='Scegli la tipologia di ordine' )
@@ -29,6 +31,8 @@ def main():
                 manual(exchange, args, extra_params)
         elif args.mode == 'auto':
                 logger.info('Automatic trading bot starting...')
+        elif args.mode == 'shutter':
+                shutter(exchange)
 
 if __name__ == '__main__':
         main()
