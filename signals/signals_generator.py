@@ -23,9 +23,9 @@ def volatility_signal(data, period=60, threshold=0.013):
     latest_volatility = data[volatility_column].iloc[-1]
     if latest_volatility > threshold:
         logger.debug('volatility is over the threshold: %s', latest_volatility)
-        return Signal.HIGH_VOLATILITY
+        return Signal.HIGH_VOLATILITY, latest_volatility
     else:
-        return Signal.LOW_VOLATILITY
+        return Signal.LOW_VOLATILITY, latest_volatility
     
 
 def parabolic_trend(data):
