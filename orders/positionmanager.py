@@ -14,12 +14,15 @@ class PositionManager:
     def check_reduce_only_order(self, position):
         ### PROBLEMA DEL FUTURO QUELLO CHE POTREBBERO ESSERE RILEVATI ANCHE GLI STOP LOSS, RISOLVERE AGGIUNGENDO IL SIDE OPPOSTO ALLA POSIZIONE
         open_orders = self.order_manager.get_open_orders(position['symbol'])
-        for order in open_orders:
-            if order['reduceOnly'] == True and order['amount'] == position['contracts']:
-                logger.info('Ordine take profit già presente e aggiornato')
-                return True
-            else:
-                return False
+        if not open_orders:
+            return False
+        else:
+            for order in open_orders:
+                if order['reduceOnly'] == True and order['amount'] == position['contracts']:
+                    logger.info('Ordine take profit già presente e aggiornato')
+                    return True
+                else:
+                    return False
 
     def percent_closing(self, long_profit_percent=1.0034, short_profit_percent=0.9966):
         try:
