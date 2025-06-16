@@ -16,7 +16,7 @@ def main():
 
         mode_completer = WordCompleter(['spotter','manual','auto','shut'])
         fetch_completer = WordCompleter(['all','volume'])
-        manual_completer = WordCompleter([])
+        order_completer = WordCompleter(['market','limit','cancel'])
 
         mode_input = session.prompt('Trading Station Mode > ', completer=mode_completer)
         if mode_input == 'spotter':
@@ -25,37 +25,21 @@ def main():
         elif mode_input == 'shut':
                 shutter(exchange)
         elif mode_input == 'auto':
-                logger.info('Starting Automated Trading Bot...')
                 logger.info('WORK IN PROGRESS') #implement logic 
         elif mode_input == 'manual':
                 logger.info('Starting manual trading session...')
+                params = {}
+                extra_params = {}
+                params['ordertype'] = session.prompt('Che tipo di ordine vuoi effettuare? > ',completer=order_completer)
+                params['symbol'] = session.prompt('Inserisci il simbolo su cui effettuare operazione > ')
+                if params['ordertype'] != 'cancel':
+                        params['side'] = session.prompt('buy or sell? > ')
+                        params['amount'] = float(session.prompt('Inserisci quantità da acquistare > '))
+                        if params['ordertype'] == 'limit':
+                                params['price'] = float(session.prompt('Inserisci prezzo > '))
+                        extra_params['reduceOnly'] = session.prompt('Reduce only order? (y/n) > ').strip().lower() == 'y'
 
-        '''
-        #mode arguments
-        parser.add_argument('--mode', choices=['spotter', 'manual', 'auto', 'shutter'], help='Scegli la modalità di esecuzione')
-
-        #spotter arguments
-        parser.add_argument('--fetch', choices=['all', 'volume'], default='all', help='Scegli su quali simboli prendere i dati')
-
-        #manual arguments
-        parser.add_argument('--ordertype', choices=['market', 'limit', 'cancel'], help='Scegli la tipologia di ordine' )
-        parser.add_argument('--symbol', type=str, help='Inserisci il nome del simbolo es. --> BTC/USDT:USDT')
-        parser.add_argument('--side', choices=['buy','sell'], help='Scegli la direzione')
-        parser.add_argument('--amount', type=float, help='Inserisci il quantitativo')
-        parser.add_argument('--price', type=float, help='Inserisci il prezzo')
-        parser.add_argument('--params', choices=['reduce'], default=None, help='Inserisci parametri aggiuntivi')
-        args = parser.parse_args()
-        extra_params = {}
-        if args.params == 'reduce':
-                extra_params['reduceOnly'] = True
-        if args.mode == 'spotter':
-                spotter(exchange,args.fetch)
-        elif args.mode == 'manual':
-                manual(exchange, args, extra_params)
-        elif args.mode == 'auto':
-                logger.info('Automatic trading bot starting...')
-        elif args.mode == 'shutter':
-                shutter(exchange)'''
+                manual(exchange,params,extra_params)
 
 if __name__ == '__main__':
         main()
