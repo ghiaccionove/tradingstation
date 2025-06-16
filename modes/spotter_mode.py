@@ -4,11 +4,11 @@ from signals.signals_generator import *
 from strategies.base_strategy import Valubot
 
 
-def spotter(exchange, fetch):
+def spotter(exchange, fetch_mode):
     try:
         logger.info('Fetching symbols')
         symbols = fetch_symbols(exchange)
-        if fetch == 'volume':
+        if fetch_mode == 'volume':
             logger.info('Fetching most traded symbols')
             symbols = filter_symbols_by_volume(exchange, symbols)
         logger.info('Searching for market condition')

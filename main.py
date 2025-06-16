@@ -4,16 +4,39 @@ from modes.manual_mode import manual
 from modes.closing_mode import shutter
 from logger import logger
 from utils.exchange_manager import Exchange
+from prompt_toolkit import PromptSession
+from prompt_toolkit.completion import WordCompleter
 
 
 def main():
-        logger.info('Inizializzo Exchange')
-        exchange = Exchange('bybit')
-        parser = argparse.ArgumentParser(description='Trading Station')
+        session = PromptSession()
+        logger.info('Avvio Trading Station...')
+        exchange = Exchange('bybit') #insert name of the exchange // don't know if others than bybit works lol
+        #parser = argparse.ArgumentParser(description='Trading Station')
+
+        mode_completer = WordCompleter(['spotter','manual','auto','shut'])
+        fetch_completer = WordCompleter(['all','volume'])
+        manual_completer = WordCompleter([])
+
+        mode_input = session.prompt('Trading Station Mode > ', completer=mode_completer)
+        if mode_input == 'spotter':
+                fetch_mode = session.prompt('Su quali simboli avvio la ricerca? > ', completer=fetch_completer)
+                spotter(exchange,fetch_mode)
+        elif mode_input == 'shut':
+                shutter(exchange)
+        elif mode_input == 'auto':
+                logger.info('Starting Automated Trading Bot...')
+                logger.info('WORK IN PROGRESS') #implement logic 
+        elif mode_input == 'manual':
+                logger.info('Starting manual trading session...')
+
+        '''
         #mode arguments
         parser.add_argument('--mode', choices=['spotter', 'manual', 'auto', 'shutter'], help='Scegli la modalità di esecuzione')
+
         #spotter arguments
         parser.add_argument('--fetch', choices=['all', 'volume'], default='all', help='Scegli su quali simboli prendere i dati')
+
         #manual arguments
         parser.add_argument('--ordertype', choices=['market', 'limit', 'cancel'], help='Scegli la tipologia di ordine' )
         parser.add_argument('--symbol', type=str, help='Inserisci il nome del simbolo es. --> BTC/USDT:USDT')
@@ -32,7 +55,7 @@ def main():
         elif args.mode == 'auto':
                 logger.info('Automatic trading bot starting...')
         elif args.mode == 'shutter':
-                shutter(exchange)
+                shutter(exchange)'''
 
 if __name__ == '__main__':
         main()
