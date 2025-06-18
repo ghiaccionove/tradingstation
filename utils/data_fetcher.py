@@ -8,6 +8,10 @@ def fetch_market_data(exchange, symbol, timeframe='1m', limit=1000):
     return data
 
 def fetch_symbols(exchange, type='swap'):
+    '''
+    return a list of symbols listed in the exchange. 
+    possible types are 'swap', 'spot', 'margin', 'future', 'option'.
+    '''
     markets = pd.DataFrame(exchange.ccxt.fetch_markets())
     swap_symbols = markets.loc[(markets['type'] == type)&(markets['quoteId'] == 'USDT'), 'symbol']
     return swap_symbols
