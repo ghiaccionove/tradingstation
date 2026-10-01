@@ -133,9 +133,8 @@ Quelli risolti sono barrati.
 8. **Valori di default mutabili** `params={}` in `OrderManager`: meglio `params=None`.
 9. **Modalità shutter/positions** pensata per futures (Bybit): su Kraken spot non ci
    sono "posizioni" nello stesso senso.
-10. **Dipendenze da ripulire** in `pyproject.toml`: `logging` (è già nella libreria
-    standard), `seaborn`, `scikit-learn`, `ipykernel` probabilmente non servono;
-    manca invece `requests` (usato da Telegram).
+10. ~~**Dipendenze da ripulire**~~ — RISOLTO: tolte `logging`, `seaborn`,
+    `scikit-learn`, `ipykernel`; aggiunta `requests`.
 11. **Spotter senza pausa**: il ciclo `while True` non attende tra un giro e l'altro e
     scarica 1000 candele da 1 minuto per ogni simbolo a ogni giro
     (Kraken comunque ne restituisce al massimo 720).
@@ -160,7 +159,7 @@ Quelli risolti sono barrati.
 - [x] Aggiungere le azioni tokenizzate di Kraken (xStocks) e la scelta crypto/stocks/all
       nello spotter.
 - [x] Correggere il crash del filtro volume.
-- [ ] Pulire `pyproject.toml` (punto 10 sopra).
+- [x] Pulire `pyproject.toml` (punto 10 sopra).
 - [ ] Verificare che lo spotter giri su Kraken **senza chiavi API** (i dati di mercato
       sono pubblici: le chiavi servono solo per gli ordini).
 
