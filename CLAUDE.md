@@ -135,11 +135,11 @@ Quelli risolti sono barrati.
    sono "posizioni" nello stesso senso.
 10. ~~**Dipendenze da ripulire**~~ — RISOLTO: tolte `logging`, `seaborn`,
     `scikit-learn`, `ipykernel`; aggiunta `requests`.
-11. **Spotter senza pausa**: il ciclo `while True` non attende tra un giro e l'altro e
-    scarica 1000 candele da 1 minuto per ogni simbolo a ogni giro
-    (Kraken comunque ne restituisce al massimo 720).
-12. **Errore nel ciclo = spotter fermo**: un'eccezione su un solo simbolo interrompe
-    tutto lo spotter.
+11. ~~**Spotter senza pausa**~~ — RISOLTO: pausa tra un giro e l'altro
+    (`pause_seconds`, predefinito 60). Resta da rendere configurabile il timeframe:
+    ora scarica sempre candele da 1 minuto (Kraken ne restituisce al massimo 720).
+12. ~~**Errore nel ciclo = spotter fermo**~~ — RISOLTO: `check_symbol()` gestisce gli
+    errori del singolo simbolo, lo salta e prosegue (scritto come INFO, non va su Telegram).
 13. ~~Commento "don't know if others than bybit works" in `main.py`~~ — RISOLTO:
     la connessione a Kraken funziona (anche senza chiavi API).
 14. **Filtro volume lento**: fa una richiesta per ogni simbolo (con 800 simboli e i limiti
