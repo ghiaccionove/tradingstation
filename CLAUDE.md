@@ -104,11 +104,15 @@ diventa automaticamente un messaggio Telegram.** `logger.info` resta solo in con
 
 ```python
 API_KEYS = {
-    'kraken': {'api_key': '', 'api_secret': ''},
+    'krakenfutures': {'api_key': '', 'api_secret': ''},
 }
 TELEGRAM_TOKEN = ''
 TELEGRAM_CHAT_ID = ''
+EXCHANGE_NAME = 'krakenfutures'   # 'kraken' per lo spot
+MARKET_TYPE = 'swap'              # 'spot' se EXCHANGE_NAME = 'kraken'
 ```
+
+Il modello completo è in `config_example.py`.
 
 Il log completo finisce in `trading_station.log` (ignorato da git; può diventare
 molto grande, si può cancellare senza problemi).
@@ -121,7 +125,7 @@ Quelli risolti sono barrati.
 
 1. ~~**Exchange scritto nel codice**~~ — RISOLTO: ora si sceglie con `EXCHANGE_NAME` in `config.py`.
 2. ~~**Filtro simboli legato a Binance/Bybit**~~ — RISOLTO: `fetch_symbols` ora ha i
-   parametri `market_type`, `quote` e `category` (crypto / stocks / all).
+   parametri `market_type`, `quote` e `category` (crypto / tradfi / all).
 3. ~~**Crash nel filtro volume**~~ — RISOLTO: i simboli senza dato di volume
    (`quoteVolume` = `None`) vengono saltati.
 4. **Strategia fissa**: lo spotter usa sempre `Valubot`; gli indicatori non si
@@ -139,7 +143,7 @@ Quelli risolti sono barrati.
     `scikit-learn`, `ipykernel`; aggiunta `requests`.
 11. ~~**Spotter senza pausa**~~ — RISOLTO: pausa tra un giro e l'altro
     (`pause_seconds`, predefinito 60). Resta da rendere configurabile il timeframe:
-    ora scarica sempre candele da 1 minuto (Kraken ne restituisce al massimo 720).
+    ora scarica sempre candele da 1 minuto (Kraken spot ne restituisce al massimo 720, Kraken Futures 1000).
 12. ~~**Errore nel ciclo = spotter fermo**~~ — RISOLTO: `check_symbol()` gestisce gli
     errori del singolo simbolo, lo salta e prosegue (scritto come INFO, non va su Telegram).
 13. ~~Commento "don't know if others than bybit works" in `main.py`~~ — RISOLTO:
@@ -147,8 +151,10 @@ Quelli risolti sono barrati.
 14. **Filtro volume lento**: fa una richiesta per ogni simbolo (con 800 simboli e i limiti
     di Kraken servono diversi minuti). Si potrebbe usare `fetch_tickers` (una sola
     richiesta per tutti). Anche la soglia predefinita (50 milioni) è molto alta per Kraken.
-15. **Ordini sulle azioni (xStocks) non ancora verificati**: probabilmente richiedono
-    anche loro il parametro `asset_class`, come i dati. Da controllare in Fase 2.
+15. **Ordini sui mercati tradfi non ancora verificati** (azioni, oro, forex...):
+    da controllare in Fase 2 (su Kraken spot probabilmente serve `asset_class`).
+16. **Shutter e posizioni su Kraken Futures non verificati**: `percent_closing` e
+    `check_reduce_only_order` sono stati scritti per Bybit.
 
 ---
 
@@ -158,8 +164,9 @@ Quelli risolti sono barrati.
 - [x] `config.py`: aggiungere `EXCHANGE_NAME`; creare un `config_example.py` versionato
       (senza segreti) come modello.
 - [x] Rendere `fetch_symbols` generico (tipo mercato e valuta quote come parametri).
-- [x] Aggiungere le azioni tokenizzate di Kraken (xStocks) e la scelta crypto/stocks/all
+- [x] Aggiungere le azioni tokenizzate di Kraken (xStocks) e la scelta crypto/tradfi/all
       nello spotter.
+- [x] Passare ai perpetual: `EXCHANGE_NAME = 'krakenfutures'`, `MARKET_TYPE = 'swap'`.
 - [x] Correggere il crash del filtro volume.
 - [x] Pulire `pyproject.toml` (punto 10 sopra).
 - [ ] Verificare che lo spotter giri su Kraken **senza chiavi API** (i dati di mercato
@@ -201,21 +208,39 @@ Idea semplice, senza architetture complicate:
 
 ## 7. Note su Kraken e ccxt
 
-- In ccxt: `ccxt.kraken` = spot, `ccxt.krakenfutures` = futures/perpetual.
-  Sono due exchange diversi, con chiavi API diverse.
-- Simboli nel formato ccxt unificato (`BTC/USD`, `ETH/EUR`), non quello nativo Kraken
-  (`XXBTZUSD`).
-- **Azioni (xStocks)**: Kraken offre azioni tokenizzate (es. `AAPLX/USD`, `TSLAX/USD`),
-  ~177 coppie in USD. ccxt **non le carica da solo**:
+- **Kraken è diviso in due exchange ccxt**, con chiavi API diverse:
+  - `krakenfutures` = perpetual e futures → **quello usato dal progetto**;
+  - `kraken` = spot (a pronti).
+- I mercati si scelgono con due impostazioni in `config.py`: `EXCHANGE_NAME` e
+  `MARKET_TYPE` (`'swap'` = perpetual). Non c'è un prompt: si cambiano lì.
+
+### Kraken Futures (perpetual)
+- ~280 perpetual lineari, quotati e regolati in USD. Simboli tipo `BTC/USD:USD`
+  (la parte dopo `:` è la valuta di regolamento).
+- Ci sono anche 4 contratti **inversi** (`BTC/USD:BTC`, regolati in crypto):
+  `fetch_symbols` li esclude.
+- Ogni mercato ha un campo `info['category']` (DeFi, Meme, AI, Layer 1, xStocks,
+  Equities, Indices, Commodities, Forex, Pre-IPO, ...). Le categorie elencate in
+  `TRADFI_CATEGORIES` (`utils/data_fetcher.py`) sono considerate `tradfi`, il resto `crypto`.
+  Esempi tradfi: `AAPLX/USD:USD`, `SPYX/USD:USD`, `US100/USD:USD`, `XAU/USD:USD` (oro),
+  `WTIOIL/USD:USD`, `EUR/USD:USD`.
+- Il ticker **non fornisce `quoteVolume`**: `get_quote_volume()` lo calcola come
+  `baseVolume * last`.
+- Restituisce fino a 1000 candele per richiesta.
+
+### Kraken spot
+- Simboli tipo `BTC/USD`, `ETH/EUR`.
+- **Azioni tokenizzate (xStocks)**, es. `AAPLX/USD` (~177 coppie in USD). ccxt **non le carica da solo**:
   - `Exchange.add_kraken_stocks()` le chiede con `fetch_markets({'aclass_base': 'tokenized_asset'})`
     e le unisce agli altri mercati;
   - per candele e ticker serve il parametro `{'asset_class': 'tokenized_asset'}`,
-    aggiunto in automatico da `get_request_params()` in `utils/data_fetcher.py`;
-  - si riconoscono da `market['info']['aclass_base'] == 'tokenized_asset'`
-    (funzione `get_market_category()`);
-  - fuori dall'orario di borsa USA hanno pochi scambi: il prezzo può restare fermo
-    per ore, e indicatori come la volatilità ne risentono.
-- Kraken restituisce al massimo **720 candele** per richiesta.
+    aggiunto in automatico da `get_request_params()`;
+  - si riconoscono da `market['info']['aclass_base'] == 'tokenized_asset'`.
+- Restituisce al massimo **720 candele** per richiesta.
+
+### In generale
+- I mercati azionari fuori dall'orario di borsa USA hanno pochi scambi: il prezzo può
+  restare fermo per ore, e indicatori come la volatilità ne risentono.
 - Kraken ha limiti di richieste piuttosto stretti: tenere `enableRateLimit: True`
   e non fare cicli senza pausa.
 - Per restare generici: usare **solo metodi ccxt unificati** (`fetch_ohlcv`,

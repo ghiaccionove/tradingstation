@@ -17,7 +17,7 @@ def main():
         mode_input = session.prompt('Trading Station Mode > ', completer=completers.mode_completer)
         if mode_input == 'spotter':
                 fetch_mode = session.prompt('Su quali simboli avvio la ricerca? > ', completer=completers.fetch_completer)
-                category = session.prompt('Quali mercati? (crypto/stocks/all) > ', completer=completers.category_completer)
+                category = session.prompt('Quali mercati? (crypto/tradfi/all) > ', completer=completers.category_completer)
                 spotter(exchange,fetch_mode,category)
         elif mode_input == 'shut':
                 shutter(exchange)
