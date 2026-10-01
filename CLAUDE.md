@@ -51,7 +51,8 @@ generico grazie a `ccxt` (il nome dell'exchange è un parametro, non va scritto
 
 ```
 main.py                     Punto di ingresso: chiede la modalità (prompt_toolkit)
-config.py                   Chiavi API e token Telegram (NON versionato, in .gitignore)
+config.py                   Chiavi API, token Telegram, exchange (NON versionato, in .gitignore)
+settings.py                 Impostazioni di trading: timeframe, candele, pausa, volume minimo (versionato)
 logger.py                   Logger: file + console + Telegram (livello WARNING)
 
 alerts/
@@ -141,16 +142,14 @@ Quelli risolti sono barrati.
    sono "posizioni" nello stesso senso.
 10. ~~**Dipendenze da ripulire**~~ — RISOLTO: tolte `logging`, `seaborn`,
     `scikit-learn`, `ipykernel`; aggiunta `requests`.
-11. ~~**Spotter senza pausa**~~ — RISOLTO: pausa tra un giro e l'altro
-    (`pause_seconds`, predefinito 60). Resta da rendere configurabile il timeframe:
-    ora scarica sempre candele da 1 minuto (Kraken spot ne restituisce al massimo 720, Kraken Futures 1000).
+11. ~~**Spotter senza pausa**~~ — RISOLTO: pausa tra un giro e l'altro e timeframe
+    configurabili in `settings.py` (`PAUSE_SECONDS`, `TIMEFRAME`, `CANDLES_LIMIT`).
 12. ~~**Errore nel ciclo = spotter fermo**~~ — RISOLTO: `check_symbol()` gestisce gli
     errori del singolo simbolo, lo salta e prosegue (scritto come INFO, non va su Telegram).
 13. ~~Commento "don't know if others than bybit works" in `main.py`~~ — RISOLTO:
     la connessione a Kraken funziona (anche senza chiavi API).
-14. **Filtro volume lento**: fa una richiesta per ogni simbolo (con 800 simboli e i limiti
-    di Kraken servono diversi minuti). Si potrebbe usare `fetch_tickers` (una sola
-    richiesta per tutti). Anche la soglia predefinita (50 milioni) è molto alta per Kraken.
+14. ~~**Filtro volume lento**~~ — RISOLTO: `fetch_all_tickers()` scarica tutti i ticker
+    con una sola richiesta (meno di 1 secondo). Soglia in `settings.py` (`MIN_VOLUME`, 1 milione $).
 15. **Ordini sui mercati tradfi non ancora verificati** (azioni, oro, forex...):
     da controllare in Fase 2 (su Kraken spot probabilmente serve `asset_class`).
 16. **Shutter e posizioni su Kraken Futures non verificati**: `percent_closing` e
@@ -189,9 +188,9 @@ Idea semplice, senza architetture complicate:
 
 - Lo spotter, per ogni simbolo, calcola solo gli indicatori con `enabled: True`
   e invia un avviso quando le condizioni scelte sono soddisfatte.
-- Aggiungere: timeframe configurabile, pausa tra un giro e l'altro, gestione errori
-  per singolo simbolo, niente avvisi ripetuti per lo stesso simbolo a pochi minuti
-  di distanza.
+- [x] Timeframe configurabile e filtro volume veloce (`settings.py`).
+- [ ] Niente avvisi ripetuti per lo stesso simbolo a pochi minuti di distanza.
+- [ ] Decidere come combinare gli indicatori accesi (tutti insieme / ognuno per conto suo).
 - In seguito: attivare/disattivare indicatori dal prompt senza modificare il file.
 
 ### Fase 2 — Ordini manuali in reazione agli avvisi
@@ -215,7 +214,7 @@ Idea semplice, senza architetture complicate:
   `MARKET_TYPE` (`'swap'` = perpetual). Non c'è un prompt: si cambiano lì.
 
 ### Kraken Futures (perpetual)
-- ~280 perpetual lineari, quotati e regolati in USD. Simboli tipo `BTC/USD:USD`
+- ~200-280 perpetual lineari (il numero varia: Kraken aggiunge e toglie mercati), quotati e regolati in USD. Simboli tipo `BTC/USD:USD`
   (la parte dopo `:` è la valuta di regolamento).
 - Ci sono anche 4 contratti **inversi** (`BTC/USD:BTC`, regolati in crypto):
   `fetch_symbols` li esclude.
