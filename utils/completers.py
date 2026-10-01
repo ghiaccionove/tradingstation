@@ -3,6 +3,7 @@ from utils.data_fetcher import fetch_symbols
 
 mode_completer = WordCompleter(['spotter','manual','auto','shut'])
 fetch_completer = WordCompleter(['all','volume'])
+category_completer = WordCompleter(['crypto','stocks','all'])
 order_completer = WordCompleter(['market','limit','cancel', 'exit'])
 
 def symbol_completer(exchange):

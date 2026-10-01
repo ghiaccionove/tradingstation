@@ -7,22 +7,18 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import WordCompleter
 from utils.data_fetcher import fetch_symbols
 from utils import completers
+from config import EXCHANGE_NAME
 
 def main():
         session = PromptSession()
         logger.info('Avvio Trading Station...')
-        exchange = Exchange('bybit') #insert name of the exchange // don't know if others than bybit works lol
-        #parser = argparse.ArgumentParser(description='Trading Station')
-
-        # mode_completer = WordCompleter(['spotter','manual','auto','shut'])
-        # fetch_completer = WordCompleter(['all','volume'])
-        # order_completer = WordCompleter(['market','limit','cancel', 'exit'])
-        # symbol_completer = WordCompleter(fetch_symbols(exchange), ignore_case=True)
+        exchange = Exchange(EXCHANGE_NAME) # il nome dell'exchange si sceglie in config.py
 
         mode_input = session.prompt('Trading Station Mode > ', completer=completers.mode_completer)
         if mode_input == 'spotter':
                 fetch_mode = session.prompt('Su quali simboli avvio la ricerca? > ', completer=completers.fetch_completer)
-                spotter(exchange,fetch_mode)
+                category = session.prompt('Quali mercati? (crypto/stocks/all) > ', completer=completers.category_completer)
+                spotter(exchange,fetch_mode,category)
         elif mode_input == 'shut':
                 shutter(exchange)
         elif mode_input == 'auto':
