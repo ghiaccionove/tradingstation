@@ -80,7 +80,6 @@ orders/
   ordermanager.py           Ordini: market, limit, cancella, ordini aperti
   positionmanager.py        Posizioni aperte e chiusura a percentuale
 
-libs/                       Wheel di TA-Lib per Windows / Python 3.10
 ```
 
 Flusso attuale dello spotter:
@@ -95,8 +94,9 @@ diventa automaticamente un messaggio Telegram.** `logger.info` resta solo in con
 ## 4. Come si avvia
 
 - Gestore dipendenze: **uv** (`pyproject.toml`, `uv.lock`). Ambiente in `.venv/`.
-- Python **3.10** (la wheel di TA-Lib in `libs/` è per cp310 su Windows);
-  la versione è scritta in `.python-version` e uv la installa da solo se manca.
+- Python **3.10** o superiore; la versione usata è scritta in `.python-version`
+  e uv la installa da solo se manca.
+- TA-Lib si installa da PyPI (versione 0.6 o superiore, wheel già pronte).
 - Installazione: `uv sync`
 - Avvio: `uv run python main.py`
 - Aggiungere / togliere una libreria: `uv add nome` / `uv remove nome`
