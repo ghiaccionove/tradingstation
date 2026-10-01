@@ -1,21 +1,23 @@
-[tool.poetry]
+[project]
 name = "tradingstation"
 version = "0.1.0"
 description = ""
-authors = ["ghiaccionove <ant.cito@gmail.com>"]
+authors = [{ name = "ghiaccionove", email = "ant.cito@gmail.com" }]
 readme = "README.md"
-package-mode = false
+# la wheel di TA-Lib in libs/ funziona solo con Python 3.10
+requires-python = "==3.10.*"
+dependencies = [
+    "pandas>=2.2.2,<3",
+    "ccxt>=4.3.42,<5",
+    "ta-lib",
+    "numpy>=1.26.4,<2",
+    "prompt-toolkit>=3.0.51,<4",
+    "requests>=2.34.2,<3",
+]
 
-[tool.poetry.dependencies]
-python = "^3.10"
-pandas = "^2.2.2"
-ccxt = "^4.3.42"
-ta-lib = {path = "libs/TA_Lib-0.4.24-cp310-cp310-win_amd64.whl"}
-numpy = "^1.26.4"
-prompt-toolkit = "^3.0.51"
-requests = "^2.34.2"
+[tool.uv]
+# non è un pacchetto da pubblicare, solo un'applicazione
+package = false
 
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[tool.uv.sources]
+ta-lib = { path = "libs/TA_Lib-0.4.24-cp310-cp310-win_amd64.whl" }

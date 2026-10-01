@@ -94,10 +94,12 @@ diventa automaticamente un messaggio Telegram.** `logger.info` resta solo in con
 
 ## 4. Come si avvia
 
-- Gestore dipendenze: **Poetry** (`pyproject.toml`, `poetry.lock`).
-- Python **3.10** (la wheel di TA-Lib in `libs/` è per cp310 su Windows).
-- Installazione: `poetry install`
-- Avvio: `poetry run python main.py`
+- Gestore dipendenze: **uv** (`pyproject.toml`, `uv.lock`). Ambiente in `.venv/`.
+- Python **3.10** (la wheel di TA-Lib in `libs/` è per cp310 su Windows);
+  la versione è scritta in `.python-version` e uv la installa da solo se manca.
+- Installazione: `uv sync`
+- Avvio: `uv run python main.py`
+- Aggiungere / togliere una libreria: `uv add nome` / `uv remove nome`
 - Serve un file `config.py` nella radice con questa forma (valori veri mai nel repo):
 
 ```python
