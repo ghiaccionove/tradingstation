@@ -52,7 +52,7 @@ generico grazie a `ccxt` (il nome dell'exchange è un parametro, non va scritto
 ```
 main.py                     Punto di ingresso: chiede la modalità (prompt_toolkit)
 config.py                   Chiavi API, token Telegram, exchange (NON versionato, in .gitignore)
-settings.py                 Impostazioni di trading: timeframe, candele, pausa, volume minimo (versionato)
+settings.py                 Impostazioni di trading: timeframe, pausa, volume, INDICATORS, MIN_SIGNALS (versionato)
 logger.py                   Logger: file + console + Telegram (livello WARNING)
 
 alerts/
@@ -67,13 +67,14 @@ utils/
 signals/
   indicators.py             Calcolo indicatori (RSI, SAR parabolico, volatilità) con TA-Lib
   signals_generator.py      Trasforma un indicatore in un segnale (es. OVERSOLD)
-  signal_types.py           Costanti dei segnali (BUY, SELL, OVERBOUGHT, ...)
+  signal_types.py           Costanti dei segnali (BUY, SELL, OVERBOUGHT, LONG, SHORT, BOTH, ...)
+  votes.py                  Voto di ogni indicatore acceso + conteggio (decide LONG/SHORT)
 
 strategies/
-  base_strategy.py          BaseStrategy + Valubot (RSI + volatilità + SAR)
+  base_strategy.py          BaseStrategy + Valubot (non più usata dallo spotter: sostituita da votes.py)
 
 modes/
-  spotter_mode.py           Ciclo infinito: per ogni simbolo scarica dati e valuta Valubot
+  spotter_mode.py           Ciclo infinito: per ogni simbolo scarica dati e conta i voti degli indicatori
   manual_mode.py            Esegue un ordine market / limit / cancel
   closing_mode.py           "Shutter": piazza take profit su tutte le posizioni aperte
 
@@ -85,7 +86,9 @@ orders/
 
 Flusso attuale dello spotter:
 `main.py` → `spotter()` → `fetch_symbols` → (filtro volume) → loop:
-`fetch_market_data` → `Valubot.generate_signal` → `logger.warning` → Telegram.
+`fetch_market_data` → `get_votes` → `decide` → (se c'è un segnale) `logger.warning` → Telegram.
+
+Esempio di avviso: `SHORT su ADA/USD:USD a 0.24594 - 2 indicatori su 3 (sar, volatility)`
 
 Il meccanismo degli avvisi è semplice e funziona bene: **un `logger.warning(...)`
 diventa automaticamente un messaggio Telegram.** `logger.info` resta solo in console/file.
@@ -129,8 +132,8 @@ Quelli risolti sono barrati.
    parametri `market_type`, `quote` e `category` (crypto / tradfi / all).
 3. ~~**Crash nel filtro volume**~~ — RISOLTO: i simboli senza dato di volume
    (`quoteVolume` = `None`) vengono saltati.
-4. **Strategia fissa**: lo spotter usa sempre `Valubot`; gli indicatori non si
-   possono attivare/disattivare.
+4. ~~**Strategia fissa**~~ — RISOLTO: indicatori accesi/spenti in `settings.py` (`INDICATORS`)
+   e numero minimo di indicatori d'accordo (`MIN_SIGNALS`). Con `'all'` equivale a Valubot (verificato).
 5. **Indicatori modificano il DataFrame** aggiungendo colonne (`data['rsi'] = ...`).
    Funziona, ma va deciso uno stile unico (vedi commento in `indicators.py`).
 6. **Volatilità**: il commento dice "annualizzata" ma il calcolo usa `sqrt(60)`;
@@ -172,7 +175,7 @@ Quelli risolti sono barrati.
       sono pubblici: le chiavi servono solo per gli ordini).
 
 ### Fase 1 — Spotter con indicatori attivabili
-Idea semplice, senza architetture complicate:
+Come funziona (implementato in `signals/votes.py`):
 
 - Ogni indicatore è **una funzione** in `signals/signals_generator.py` che riceve
   il DataFrame e restituisce un segnale (o `None`).
@@ -190,7 +193,11 @@ Idea semplice, senza architetture complicate:
   e invia un avviso quando le condizioni scelte sono soddisfatte.
 - [x] Timeframe configurabile e filtro volume veloce (`settings.py`).
 - [ ] Niente avvisi ripetuti per lo stesso simbolo a pochi minuti di distanza.
-- [ ] Decidere come combinare gli indicatori accesi (tutti insieme / ognuno per conto suo).
+- [x] Indicatori attivabili (`INDICATORS`) e combinazione: tutti (`MIN_SIGNALS = 'all'`)
+      oppure almeno N (`MIN_SIGNALS = 2`). Avviso tipo "3 indicatori su 5".
+- [ ] SAR vota sempre (LONG o SHORT) e la volatilità vota BOTH: con `MIN_SIGNALS` basso
+      SAR + volatilità bastano da soli a generare molti avvisi. Valutare se il SAR debba
+      votare solo all'inversione e se la volatilità debba essere un filtro invece che un voto.
 - In seguito: attivare/disattivare indicatori dal prompt senza modificare il file.
 
 ### Fase 2 — Ordini manuali in reazione agli avvisi

@@ -3,8 +3,8 @@ from signals.signal_types import Signal
 import pandas as pd
 from logger import logger
 
-def rsi_signal(data, overbought=70, oversold=30):
-    data = indicators.rsi(data)
+def rsi_signal(data, overbought=70, oversold=30, period=14):
+    data = indicators.rsi(data, period=period)
     latest_rsi = data['rsi'].iloc[-1]
     if latest_rsi > overbought:
         logger.debug('RSI: %s --> ipercomprato', latest_rsi)
@@ -28,8 +28,8 @@ def volatility_signal(data, period=60, threshold=0.013):
         return Signal.LOW_VOLATILITY, latest_volatility
     
 
-def parabolic_trend(data):
-    data = indicators.parabolic_sar(data)
+def parabolic_trend(data, acceleration=0.02, maximum=0.2):
+    data = indicators.parabolic_sar(data, acceleration=acceleration, maximum=maximum)
     latest_sar = data['sar'].iloc[-1]
     if data['close'].iloc[-1] >=  latest_sar:
         logger.debug('Price is up parabolic SAR: %s', latest_sar)
