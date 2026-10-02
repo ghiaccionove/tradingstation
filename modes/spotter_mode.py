@@ -1,6 +1,6 @@
 import time
 from logger import logger
-from utils.data_fetcher import fetch_symbols, filter_symbols_by_volume, fetch_market_data, count_active_candles
+from utils.data_fetcher import select_symbols, fetch_market_data, count_active_candles
 from signals.votes import get_votes, decide, get_required_signals
 from settings import PAUSE_SECONDS, TIMEFRAME, INDICATORS, ACTIVITY_CANDLES, MIN_ACTIVE_CANDLES
 from settings import ALERT_COOLDOWN_MINUTES
@@ -8,13 +8,7 @@ from settings import ALERT_COOLDOWN_MINUTES
 
 def spotter(exchange, fetch_mode, category, pause_seconds=PAUSE_SECONDS):
     try:
-        logger.info('Fetching symbols')
-        symbols = fetch_symbols(exchange, category=category)
-        logger.info('Simboli trovati: %s', len(symbols))
-        if fetch_mode == 'volume':
-            logger.info('Fetching most traded symbols')
-            symbols = filter_symbols_by_volume(exchange, symbols)
-            logger.info('Simboli dopo il filtro volume: %s', len(symbols))
+        symbols = select_symbols(exchange, fetch_mode, category)
         log_indicator_settings()
         logger.info('Searching for market condition (timeframe %s)', TIMEFRAME)
         # ultimo avviso inviato per ogni simbolo, es. {'BTC/USD:USD': ('LONG', 1790857020.5)}

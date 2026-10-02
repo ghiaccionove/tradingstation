@@ -1,6 +1,7 @@
 from modes.spotter_mode import spotter
 from modes.manual_mode import manual
 from modes.closing_mode import shutter
+from modes.evaluate_mode import evaluate
 from logger import logger
 from utils.exchange_manager import Exchange
 from prompt_toolkit import PromptSession
@@ -19,6 +20,10 @@ def main():
                 fetch_mode = session.prompt('Su quali simboli avvio la ricerca? > ', completer=completers.fetch_completer)
                 category = session.prompt('Quali mercati? (crypto/tradfi/all) > ', completer=completers.category_completer)
                 spotter(exchange,fetch_mode,category)
+        elif mode_input == 'evaluate':
+                fetch_mode = session.prompt('Su quali simboli valuto i segnali? > ', completer=completers.fetch_completer)
+                category = session.prompt('Quali mercati? (crypto/tradfi/all) > ', completer=completers.category_completer)
+                evaluate(exchange,fetch_mode,category)
         elif mode_input == 'shut':
                 shutter(exchange)
         elif mode_input == 'auto':

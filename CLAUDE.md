@@ -77,6 +77,7 @@ modes/
   spotter_mode.py           Ciclo infinito: per ogni simbolo scarica dati e conta i voti degli indicatori
   manual_mode.py            Esegue un ordine market / limit / cancel
   closing_mode.py           "Shutter": piazza take profit su tutte le posizioni aperte
+  evaluate_mode.py          Valutazione dei segnali sui dati storici (stessa logica dello spotter)
 
 docs/
   letteratura.md            Cosa dice la ricerca su ogni indicatore: evidenza, ridondanze, priorità
@@ -228,8 +229,12 @@ Come funziona (implementato in `signals/votes.py`):
 #### Nuovi indicatori (vedi `docs/letteratura.md`)
 - [x] Documento con la letteratura verificata su indicatori di trend, oscillatori,
       volatilità, volume e dati dei perpetual (funding rate, open interest).
-- [ ] Strumento di valutazione dei segnali: cosa fa il prezzo dopo ogni segnale,
-      confronto con segnali casuali, al netto delle commissioni, su due periodi diversi.
+- [x] Strumento di valutazione dei segnali (modalità `evaluate` in `main.py`):
+      scorre lo storico candela per candela vedendo solo il passato, con la stessa logica
+      dello spotter; per ogni segnale misura il risultato dopo `EVAL_HORIZONS` candele al netto
+      di `EVAL_FEE_PERCENT`, lo confronta con l'entrare "a caso" e divide la storia in due periodi.
+      Elenco dei segnali in `evaluations/*.csv` (escluso da git).
+      Verificato: nessuno sguardo al futuro, risultati corretti, blocco ripetizioni come lo spotter.
 - [ ] Aggiungere, uno alla volta e solo dopo averli misurati: medie mobili, volume anomalo,
       ADX come filtro, rottura di canale, funding rate.
 - Regola: **un indicatore per gruppo** (vedi tabella delle ridondanze nel documento),

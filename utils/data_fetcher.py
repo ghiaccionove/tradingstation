@@ -114,3 +114,40 @@ def count_active_candles(data, last_candles):
     recent = data.tail(last_candles)
     moved = recent['high'] != recent['low']
     return int(moved.sum())
+
+def fetch_history(exchange, symbol, total_candles, timeframe=TIMEFRAME):
+    '''
+    scarica le ultime `total_candles` candele chiuse, a pagine da 1000
+    (Kraken Futures non ne restituisce di più per richiesta).
+    Attenzione: Kraken spot restituisce solo le ultime 720 candele, senza storico più vecchio.
+    '''
+    params = get_request_params(exchange, symbol)
+    candle_ms = exchange.ccxt.parse_timeframe(timeframe) * 1000
+    since = exchange.ccxt.milliseconds() - total_candles * candle_ms
+    candles = []
+    while True:
+        page = exchange.ccxt.fetch_ohlcv(symbol, timeframe=timeframe, since=since, limit=1000, params=params)
+        if len(page) == 0:
+            break
+        candles = candles + page
+        since = page[-1][0] + candle_ms   # la prossima pagina parte dopo l'ultima candela ricevuta
+        if len(page) < 1000:              # pagina incompleta = siamo arrivati a oggi
+            break
+    data = pd.DataFrame(candles, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+    data = data.drop_duplicates('timestamp').reset_index(drop=True)
+    # l'ultima candela è ancora in corso: la togliamo, si valutano solo candele chiuse
+    return data.iloc[:-1]
+
+def select_symbols(exchange, fetch_mode, category):
+    '''
+    sceglie i simboli da analizzare, come richiesto all'avvio:
+    fetch_mode 'all' = tutti, 'volume' = solo quelli con volume sopra MIN_VOLUME
+    '''
+    logger.info('Fetching symbols')
+    symbols = fetch_symbols(exchange, category=category)
+    logger.info('Simboli trovati: %s', len(symbols))
+    if fetch_mode == 'volume':
+        logger.info('Fetching most traded symbols')
+        symbols = filter_symbols_by_volume(exchange, symbols)
+        logger.info('Simboli dopo il filtro volume: %s', len(symbols))
+    return symbols

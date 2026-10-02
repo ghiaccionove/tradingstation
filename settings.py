@@ -29,6 +29,18 @@ MIN_ACTIVE_CANDLES = 10
 # Mettere 0 per ricevere l'avviso a ogni giro.
 ALERT_COOLDOWN_MINUTES = 60
 
+# --- Valutazione dei segnali (modalità 'evaluate') ---
+
+# Quante candele storiche scaricare per ogni simbolo (es. 3000 candele da 15m = circa 31 giorni)
+EVAL_CANDLES = 3000
+
+# Dopo quante candele misurare cosa ha fatto il prezzo (es. 4 candele da 15m = 1 ora)
+EVAL_HORIZONS = [1, 4, 12, 24]
+
+# Commissioni di andata e ritorno, in percentuale.
+# Kraken Futures: 0.05% per ordine 'taker' (al mercato) -> 0.10% tra entrata e uscita
+EVAL_FEE_PERCENT = 0.10
+
 # --- Indicatori ---
 
 # Ogni indicatore si accende/spegne con 'enabled' e ha i suoi parametri.
@@ -59,4 +71,4 @@ INDICATORS = {
 # Quanti indicatori accesi devono essere d'accordo per far partire un avviso.
 #   'all' -> tutti quelli accesi (es. 3 su 3)
 #   un numero, es. 2 -> almeno 2 di quelli accesi (es. 2 su 3)
-MIN_SIGNALS = 2
+MIN_SIGNALS = 'all'
