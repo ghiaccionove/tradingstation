@@ -1,6 +1,7 @@
 import pandas as pd
 from logger import logger
 from config import MARKET_TYPE
+from settings import TIMEFRAME, CANDLES_LIMIT, MIN_VOLUME
 
 # Categorie di Kraken Futures che consideriamo mercati tradizionali ('tradfi').
 # Tutte le altre (DeFi, Meme, AI, Layer 1, ...) sono considerate 'crypto'.
@@ -31,7 +32,7 @@ def get_request_params(exchange, symbol):
         return {'asset_class': 'tokenized_asset'}
     return {}
 
-def fetch_market_data(exchange, symbol, timeframe='1m', limit=1000):
+def fetch_market_data(exchange, symbol, timeframe=TIMEFRAME, limit=CANDLES_LIMIT):
     logger.info('%s', symbol)
     params = get_request_params(exchange, symbol)
     data = pd.DataFrame(exchange.ccxt.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit, params=params),
@@ -73,14 +74,80 @@ def get_quote_volume(ticker):
         return ticker['baseVolume'] * ticker['last']
     return None
 
-def filter_symbols_by_volume(exchange, symbols, min_volume=50000000):
-    filtered_symbols = []
+def fetch_all_tickers(exchange, symbols):
+    '''
+    scarica i ticker (prezzo, volume, ...) di tutti i simboli con una sola richiesta,
+    invece di una richiesta per simbolo.
+    Su Kraken spot le azioni tokenizzate vanno chieste a parte, con il loro parametro:
+    per questo i simboli vengono divisi in due gruppi.
+    '''
+    normal_symbols = []
+    tokenized_symbols = []
     for symbol in symbols:
-        params = get_request_params(exchange, symbol)
-        ticker = exchange.ccxt.fetch_ticker(symbol, params=params)
-        volume = get_quote_volume(ticker)
+        if get_request_params(exchange, symbol) == {}:
+            normal_symbols.append(symbol)
+        else:
+            tokenized_symbols.append(symbol)
+
+    tickers = {}
+    if len(normal_symbols) > 0:
+        tickers.update(exchange.ccxt.fetch_tickers(normal_symbols))
+    if len(tokenized_symbols) > 0:
+        tickers.update(exchange.ccxt.fetch_tickers(tokenized_symbols, params={'asset_class': 'tokenized_asset'}))
+    return tickers
+
+def filter_symbols_by_volume(exchange, symbols, min_volume=MIN_VOLUME):
+    filtered_symbols = []
+    tickers = fetch_all_tickers(exchange, symbols)
+    for symbol in symbols:
+        if symbol not in tickers:  # nessun dato per questo simbolo
+            continue
+        volume = get_quote_volume(tickers[symbol])
         if volume is None:  # alcuni mercati non hanno il dato del volume
             continue
         if volume >= min_volume:
             filtered_symbols.append(symbol)
     return filtered_symbols
+
+def count_active_candles(data, last_candles):
+    '''quante delle ultime `last_candles` candele hanno avuto un movimento di prezzo (massimo diverso dal minimo)'''
+    recent = data.tail(last_candles)
+    moved = recent['high'] != recent['low']
+    return int(moved.sum())
+
+def fetch_history(exchange, symbol, total_candles, timeframe=TIMEFRAME):
+    '''
+    scarica le ultime `total_candles` candele chiuse, a pagine da 1000
+    (Kraken Futures non ne restituisce di più per richiesta).
+    Attenzione: Kraken spot restituisce solo le ultime 720 candele, senza storico più vecchio.
+    '''
+    params = get_request_params(exchange, symbol)
+    candle_ms = exchange.ccxt.parse_timeframe(timeframe) * 1000
+    since = exchange.ccxt.milliseconds() - total_candles * candle_ms
+    candles = []
+    while True:
+        page = exchange.ccxt.fetch_ohlcv(symbol, timeframe=timeframe, since=since, limit=1000, params=params)
+        if len(page) == 0:
+            break
+        candles = candles + page
+        since = page[-1][0] + candle_ms   # la prossima pagina parte dopo l'ultima candela ricevuta
+        if len(page) < 1000:              # pagina incompleta = siamo arrivati a oggi
+            break
+    data = pd.DataFrame(candles, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+    data = data.drop_duplicates('timestamp').reset_index(drop=True)
+    # l'ultima candela è ancora in corso: la togliamo, si valutano solo candele chiuse
+    return data.iloc[:-1]
+
+def select_symbols(exchange, fetch_mode, category):
+    '''
+    sceglie i simboli da analizzare, come richiesto all'avvio:
+    fetch_mode 'all' = tutti, 'volume' = solo quelli con volume sopra MIN_VOLUME
+    '''
+    logger.info('Fetching symbols')
+    symbols = fetch_symbols(exchange, category=category)
+    logger.info('Simboli trovati: %s', len(symbols))
+    if fetch_mode == 'volume':
+        logger.info('Fetching most traded symbols')
+        symbols = filter_symbols_by_volume(exchange, symbols)
+        logger.info('Simboli dopo il filtro volume: %s', len(symbols))
+    return symbols

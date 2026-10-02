@@ -51,7 +51,8 @@ generico grazie a `ccxt` (il nome dell'exchange è un parametro, non va scritto
 
 ```
 main.py                     Punto di ingresso: chiede la modalità (prompt_toolkit)
-config.py                   Chiavi API e token Telegram (NON versionato, in .gitignore)
+config.py                   Chiavi API, token Telegram, exchange (NON versionato, in .gitignore)
+settings.py                 Impostazioni di trading: timeframe, pausa, volume, INDICATORS, MIN_SIGNALS (versionato)
 logger.py                   Logger: file + console + Telegram (livello WARNING)
 
 alerts/
@@ -64,17 +65,22 @@ utils/
   completers.py             Autocompletamento per i prompt
 
 signals/
-  indicators.py             Calcolo indicatori (RSI, SAR parabolico, volatilità) con TA-Lib
+  indicators.py             Calcolo indicatori (RSI, SAR, volatilità oraria, ATR relativo): restituiscono serie di valori
   signals_generator.py      Trasforma un indicatore in un segnale (es. OVERSOLD)
-  signal_types.py           Costanti dei segnali (BUY, SELL, OVERBOUGHT, ...)
+  signal_types.py           Costanti dei segnali (BUY, SELL, OVERBOUGHT, LONG, SHORT, BOTH, ...)
+  votes.py                  Voto di ogni indicatore acceso + conteggio (decide LONG/SHORT)
 
 strategies/
-  base_strategy.py          BaseStrategy + Valubot (RSI + volatilità + SAR)
+  base_strategy.py          BaseStrategy + Valubot (non più usata dallo spotter: sostituita da votes.py)
 
 modes/
-  spotter_mode.py           Ciclo infinito: per ogni simbolo scarica dati e valuta Valubot
+  spotter_mode.py           Ciclo infinito: per ogni simbolo scarica dati e conta i voti degli indicatori
   manual_mode.py            Esegue un ordine market / limit / cancel
   closing_mode.py           "Shutter": piazza take profit su tutte le posizioni aperte
+  evaluate_mode.py          Valutazione dei segnali sui dati storici (stessa logica dello spotter)
+
+docs/
+  letteratura.md            Cosa dice la ricerca su ogni indicatore: evidenza, ridondanze, priorità
 
 orders/
   ordermanager.py           Ordini: market, limit, cancella, ordini aperti
@@ -84,7 +90,9 @@ orders/
 
 Flusso attuale dello spotter:
 `main.py` → `spotter()` → `fetch_symbols` → (filtro volume) → loop:
-`fetch_market_data` → `Valubot.generate_signal` → `logger.warning` → Telegram.
+`fetch_market_data` → `get_votes` → `decide` → (se c'è un segnale) `logger.warning` → Telegram.
+
+Esempio di avviso: `SHORT su ADA/USD:USD a 0.24594 - 2 indicatori su 3 (sar, volatility)`
 
 Il meccanismo degli avvisi è semplice e funziona bene: **un `logger.warning(...)`
 diventa automaticamente un messaggio Telegram.** `logger.info` resta solo in console/file.
@@ -128,12 +136,13 @@ Quelli risolti sono barrati.
    parametri `market_type`, `quote` e `category` (crypto / tradfi / all).
 3. ~~**Crash nel filtro volume**~~ — RISOLTO: i simboli senza dato di volume
    (`quoteVolume` = `None`) vengono saltati.
-4. **Strategia fissa**: lo spotter usa sempre `Valubot`; gli indicatori non si
-   possono attivare/disattivare.
-5. **Indicatori modificano il DataFrame** aggiungendo colonne (`data['rsi'] = ...`).
-   Funziona, ma va deciso uno stile unico (vedi commento in `indicators.py`).
-6. **Volatilità**: il commento dice "annualizzata" ma il calcolo usa `sqrt(60)`;
-   chiarire cosa si vuole misurare.
+4. ~~**Strategia fissa**~~ — RISOLTO: indicatori accesi/spenti in `settings.py` (`INDICATORS`)
+   e numero minimo di indicatori d'accordo (`MIN_SIGNALS`). Con `'all'` equivale a Valubot (verificato).
+5. ~~**Indicatori modificano il DataFrame**~~ — RISOLTO: ogni funzione in `indicators.py`
+   restituisce la serie di valori e non aggiunge colonne (regola scritta in cima al file).
+6. ~~**Volatilità**~~ — RISOLTO: è la volatilità **oraria** (0.013 = 1,3% all'ora). Prima
+   moltiplicava sempre per √60, giusto solo con candele da 1m: con 15m o 1h risultava
+   gonfiata di 4-8 volte. Ora la scala si ricava dalla durata delle candele.
 7. **`check_reduce_only_order`** esce dal ciclo al primo ordine (il `return False`
    nell'`else` interrompe il `for`) e non distingue take profit da stop loss.
 8. **Valori di default mutabili** `params={}` in `OrderManager`: meglio `params=None`.
@@ -141,20 +150,23 @@ Quelli risolti sono barrati.
    sono "posizioni" nello stesso senso.
 10. ~~**Dipendenze da ripulire**~~ — RISOLTO: tolte `logging`, `seaborn`,
     `scikit-learn`, `ipykernel`; aggiunta `requests`.
-11. ~~**Spotter senza pausa**~~ — RISOLTO: pausa tra un giro e l'altro
-    (`pause_seconds`, predefinito 60). Resta da rendere configurabile il timeframe:
-    ora scarica sempre candele da 1 minuto (Kraken spot ne restituisce al massimo 720, Kraken Futures 1000).
+11. ~~**Spotter senza pausa**~~ — RISOLTO: pausa tra un giro e l'altro e timeframe
+    configurabili in `settings.py` (`PAUSE_SECONDS`, `TIMEFRAME`, `CANDLES_LIMIT`).
 12. ~~**Errore nel ciclo = spotter fermo**~~ — RISOLTO: `check_symbol()` gestisce gli
     errori del singolo simbolo, lo salta e prosegue (scritto come INFO, non va su Telegram).
 13. ~~Commento "don't know if others than bybit works" in `main.py`~~ — RISOLTO:
     la connessione a Kraken funziona (anche senza chiavi API).
-14. **Filtro volume lento**: fa una richiesta per ogni simbolo (con 800 simboli e i limiti
-    di Kraken servono diversi minuti). Si potrebbe usare `fetch_tickers` (una sola
-    richiesta per tutti). Anche la soglia predefinita (50 milioni) è molto alta per Kraken.
+14. ~~**Filtro volume lento**~~ — RISOLTO: `fetch_all_tickers()` scarica tutti i ticker
+    con una sola richiesta (meno di 1 secondo). Soglia in `settings.py` (`MIN_VOLUME`, 1 milione $).
 15. **Ordini sui mercati tradfi non ancora verificati** (azioni, oro, forex...):
     da controllare in Fase 2 (su Kraken spot probabilmente serve `asset_class`).
 16. **Shutter e posizioni su Kraken Futures non verificati**: `percent_closing` e
     `check_reduce_only_order` sono stati scritti per Bybit.
+17. ~~**Mercati fermi danno falsi segnali**~~ — RISOLTO: `check_symbol` salta i simboli
+    con meno di `MIN_ACTIVE_CANDLES` candele mosse nelle ultime `ACTIVITY_CANDLES`
+    (`settings.py`, 10 su 60). Su 1m sono saltati ~127 perpetual su 204: hanno pochissimi scambi.
+18. ~~**Simbolo senza candele**~~ — RISOLTO: saltato prima di calcolare gli indicatori.
+    A fine giro lo spotter scrive quanti simboli ha controllato e quanti ha saltato.
 
 ---
 
@@ -173,7 +185,7 @@ Quelli risolti sono barrati.
       sono pubblici: le chiavi servono solo per gli ordini).
 
 ### Fase 1 — Spotter con indicatori attivabili
-Idea semplice, senza architetture complicate:
+Come funziona (implementato in `signals/votes.py`):
 
 - Ogni indicatore è **una funzione** in `signals/signals_generator.py` che riceve
   il DataFrame e restituisce un segnale (o `None`).
@@ -189,10 +201,44 @@ Idea semplice, senza architetture complicate:
 
 - Lo spotter, per ogni simbolo, calcola solo gli indicatori con `enabled: True`
   e invia un avviso quando le condizioni scelte sono soddisfatte.
-- Aggiungere: timeframe configurabile, pausa tra un giro e l'altro, gestione errori
-  per singolo simbolo, niente avvisi ripetuti per lo stesso simbolo a pochi minuti
-  di distanza.
+- [x] Timeframe configurabile e filtro volume veloce (`settings.py`).
+- [x] Stile unico degli indicatori e volatilità oraria indipendente dal timeframe.
+- [x] ATR relativo (`'atr'` in `INDICATORS`, spento di default): alternativa a `volatility`
+      che confronta ogni simbolo con se stesso. Soglia 1.5 superata ~10% delle volte
+      (misurato su 1m e 15m), distribuita su molti simboli invece che sempre sui soliti.
+- [x] Niente avvisi ripetuti: stesso simbolo e stessa direzione non vengono reinviati prima di
+      `ALERT_COOLDOWN_MINUTES` (60). Se la direzione cambia l'avviso parte subito.
+      La memoria degli avvisi si azzera al riavvio dello spotter.
+- [ ] Da osservare: il SAR può ribaltarsi LONG/SHORT su una candela ancora in corso
+      (visto su QNT, stesso prezzo a pochi secondi di distanza) e far ripartire l'avviso.
+      Se diventa fastidioso: cooldown per simbolo indipendente dalla direzione, oppure
+      calcolare gli indicatori solo sulle candele chiuse (escludendo l'ultima, ancora in corso).
+- [x] Indicatori attivabili (`INDICATORS`) e combinazione: tutti (`MIN_SIGNALS = 'all'`)
+      oppure almeno N (`MIN_SIGNALS = 2`). Avviso tipo "3 indicatori su 5".
+- [ ] SAR vota sempre (LONG o SHORT) e la volatilità vota BOTH: con `MIN_SIGNALS` basso
+      SAR + volatilità bastano da soli a generare molti avvisi. Valutare se il SAR debba
+      votare solo all'inversione e se la volatilità debba essere un filtro invece che un voto.
 - In seguito: attivare/disattivare indicatori dal prompt senza modificare il file.
+
+- [x] Modi di voto (`'mode'` in `INDICATORS`): lo stesso indicatore può votare in modi diversi.
+      RSI: `'reversal'` (ipervenduto = LONG) o `'trend'` (sopra 50 = LONG).
+      SAR: `'direction'` (vota sempre) o `'flip'` (vota solo se si è girato nelle ultime
+      `flip_candles` candele). Si possono mescolare apposta (es. trend + inversione =
+      "compra il ribasso dentro un trend").
+
+#### Nuovi indicatori (vedi `docs/letteratura.md`)
+- [x] Documento con la letteratura verificata su indicatori di trend, oscillatori,
+      volatilità, volume e dati dei perpetual (funding rate, open interest).
+- [x] Strumento di valutazione dei segnali (modalità `evaluate` in `main.py`):
+      scorre lo storico candela per candela vedendo solo il passato, con la stessa logica
+      dello spotter; per ogni segnale misura il risultato dopo `EVAL_HORIZONS` candele al netto
+      di `EVAL_FEE_PERCENT`, lo confronta con l'entrare "a caso" e divide la storia in due periodi.
+      Elenco dei segnali in `evaluations/*.csv` (escluso da git).
+      Verificato: nessuno sguardo al futuro, risultati corretti, blocco ripetizioni come lo spotter.
+- [ ] Aggiungere, uno alla volta e solo dopo averli misurati: medie mobili, volume anomalo,
+      ADX come filtro, rottura di canale, funding rate.
+- Regola: **un indicatore per gruppo** (vedi tabella delle ridondanze nel documento),
+  per non far votare più volte la stessa idea.
 
 ### Fase 2 — Ordini manuali in reazione agli avvisi
 - Dall'avviso proporre un ordine precompilato (simbolo, lato) da confermare a mano.
@@ -215,7 +261,7 @@ Idea semplice, senza architetture complicate:
   `MARKET_TYPE` (`'swap'` = perpetual). Non c'è un prompt: si cambiano lì.
 
 ### Kraken Futures (perpetual)
-- ~280 perpetual lineari, quotati e regolati in USD. Simboli tipo `BTC/USD:USD`
+- ~200-280 perpetual lineari (il numero varia: Kraken aggiunge e toglie mercati), quotati e regolati in USD. Simboli tipo `BTC/USD:USD`
   (la parte dopo `:` è la valuta di regolamento).
 - Ci sono anche 4 contratti **inversi** (`BTC/USD:BTC`, regolati in crypto):
   `fetch_symbols` li esclude.
