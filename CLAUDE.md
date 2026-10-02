@@ -78,6 +78,9 @@ modes/
   manual_mode.py            Esegue un ordine market / limit / cancel
   closing_mode.py           "Shutter": piazza take profit su tutte le posizioni aperte
 
+docs/
+  letteratura.md            Cosa dice la ricerca su ogni indicatore: evidenza, ridondanze, priorità
+
 orders/
   ordermanager.py           Ordini: market, limit, cancella, ordini aperti
   positionmanager.py        Posizioni aperte e chiusura a percentuale
@@ -215,6 +218,16 @@ Come funziona (implementato in `signals/votes.py`):
       SAR + volatilità bastano da soli a generare molti avvisi. Valutare se il SAR debba
       votare solo all'inversione e se la volatilità debba essere un filtro invece che un voto.
 - In seguito: attivare/disattivare indicatori dal prompt senza modificare il file.
+
+#### Nuovi indicatori (vedi `docs/letteratura.md`)
+- [x] Documento con la letteratura verificata su indicatori di trend, oscillatori,
+      volatilità, volume e dati dei perpetual (funding rate, open interest).
+- [ ] Strumento di valutazione dei segnali: cosa fa il prezzo dopo ogni segnale,
+      confronto con segnali casuali, al netto delle commissioni, su due periodi diversi.
+- [ ] Aggiungere, uno alla volta e solo dopo averli misurati: medie mobili, volume anomalo,
+      ADX come filtro, rottura di canale, funding rate.
+- Regola: **un indicatore per gruppo** (vedi tabella delle ridondanze nel documento),
+  per non far votare più volte la stessa idea.
 
 ### Fase 2 — Ordini manuali in reazione agli avvisi
 - Dall'avviso proporre un ordine precompilato (simbolo, lato) da confermare a mano.
