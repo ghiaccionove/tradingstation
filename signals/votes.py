@@ -6,7 +6,7 @@ LONG, SHORT, BOTH (conferma entrambe) oppure None (nessun segnale).
 Poi si contano i voti: se abbastanza indicatori sono d'accordo, c'è un segnale.
 '''
 from signals.signal_types import Signal
-from signals.signals_generator import rsi_signal, parabolic_trend, volatility_signal
+from signals.signals_generator import rsi_signal, parabolic_trend, volatility_signal, atr_signal
 from settings import INDICATORS, MIN_SIGNALS
 
 
@@ -34,6 +34,14 @@ def volatility_vote(data, settings):
         return Signal.BOTH
     return None
 
+def atr_vote(data, settings):
+    signal, latest_ratio = atr_signal(data, period=settings['period'],
+                                      average_period=settings['average_period'],
+                                      threshold=settings['threshold'])
+    if signal == Signal.HIGH_VOLATILITY:
+        return Signal.BOTH
+    return None
+
 
 # --- Raccolta e conteggio dei voti ---
 
@@ -50,6 +58,8 @@ def get_votes(data):
         votes['sar'] = sar_vote(data, INDICATORS['sar'])
     if INDICATORS['volatility']['enabled']:
         votes['volatility'] = volatility_vote(data, INDICATORS['volatility'])
+    if INDICATORS['atr']['enabled']:
+        votes['atr'] = atr_vote(data, INDICATORS['atr'])
     return votes
 
 def get_required_signals(enabled_count):

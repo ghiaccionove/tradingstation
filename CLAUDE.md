@@ -65,7 +65,7 @@ utils/
   completers.py             Autocompletamento per i prompt
 
 signals/
-  indicators.py             Calcolo indicatori (RSI, SAR, volatilità oraria): restituiscono serie di valori
+  indicators.py             Calcolo indicatori (RSI, SAR, volatilità oraria, ATR relativo): restituiscono serie di valori
   signals_generator.py      Trasforma un indicatore in un segnale (es. OVERSOLD)
   signal_types.py           Costanti dei segnali (BUY, SELL, OVERBOUGHT, LONG, SHORT, BOTH, ...)
   votes.py                  Voto di ogni indicatore acceso + conteggio (decide LONG/SHORT)
@@ -158,6 +158,11 @@ Quelli risolti sono barrati.
     da controllare in Fase 2 (su Kraken spot probabilmente serve `asset_class`).
 16. **Shutter e posizioni su Kraken Futures non verificati**: `percent_closing` e
     `check_reduce_only_order` sono stati scritti per Bybit.
+17. **Mercati fermi danno falsi segnali**: se il prezzo non si muove mai (es. `GBP/USD:USD`,
+    `CHF/USD:USD` sui futures: 1000 candele identiche) RSI e SAR votano entrambi LONG.
+    Con il filtro `volume` sono esclusi, con `all` no. Da saltare in `check_symbol`.
+18. **Simbolo senza candele**: `check_symbol` lo salta ma con un messaggio poco chiaro
+    ("single positional indexer is out-of-bounds").
 
 ---
 
@@ -194,6 +199,9 @@ Come funziona (implementato in `signals/votes.py`):
   e invia un avviso quando le condizioni scelte sono soddisfatte.
 - [x] Timeframe configurabile e filtro volume veloce (`settings.py`).
 - [x] Stile unico degli indicatori e volatilità oraria indipendente dal timeframe.
+- [x] ATR relativo (`'atr'` in `INDICATORS`, spento di default): alternativa a `volatility`
+      che confronta ogni simbolo con se stesso. Soglia 1.5 superata ~10% delle volte
+      (misurato su 1m e 15m), distribuita su molti simboli invece che sempre sui soliti.
 - [ ] Niente avvisi ripetuti per lo stesso simbolo a pochi minuti di distanza.
 - [x] Indicatori attivabili (`INDICATORS`) e combinazione: tutti (`MIN_SIGNALS = 'all'`)
       oppure almeno N (`MIN_SIGNALS = 2`). Avviso tipo "3 indicatori su 5".

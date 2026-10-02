@@ -25,10 +25,16 @@ MIN_VOLUME = 1000000
 #   volatility -> se la volatilità supera 'threshold' conferma entrambe le direzioni (BOTH)
 #                 volatilità = movimento tipico del prezzo in un'ora, calcolato sulle ultime
 #                 'period' candele (0.013 = 1,3% all'ora; mediana dei perpetual più scambiati ~0.008)
+#   atr        -> ATR relativo: volatilità di adesso divisa per quella normale del simbolo.
+#                 Se supera 'threshold' conferma entrambe le direzioni (BOTH).
+#                 1.0 = normale, 1.5 = il 50% più agitato del solito (succede ~10% delle volte).
+#                 'period' = candele per l'ATR, 'average_period' = candele per la media "normale".
+#                 È un'alternativa a 'volatility': di solito se ne accende solo uno dei due.
 INDICATORS = {
     'rsi':        {'enabled': True, 'period': 14, 'overbought': 66, 'oversold': 34},
     'sar':        {'enabled': True, 'acceleration': 0.02, 'maximum': 0.2},
     'volatility': {'enabled': True, 'period': 60, 'threshold': 0.013},
+    'atr':        {'enabled': False, 'period': 14, 'average_period': 100, 'threshold': 1.5},
 }
 
 # Quanti indicatori accesi devono essere d'accordo per far partire un avviso.
