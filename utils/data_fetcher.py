@@ -108,3 +108,9 @@ def filter_symbols_by_volume(exchange, symbols, min_volume=MIN_VOLUME):
         if volume >= min_volume:
             filtered_symbols.append(symbol)
     return filtered_symbols
+
+def count_active_candles(data, last_candles):
+    '''quante delle ultime `last_candles` candele hanno avuto un movimento di prezzo (massimo diverso dal minimo)'''
+    recent = data.tail(last_candles)
+    moved = recent['high'] != recent['low']
+    return int(moved.sum())

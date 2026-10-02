@@ -158,11 +158,11 @@ Quelli risolti sono barrati.
     da controllare in Fase 2 (su Kraken spot probabilmente serve `asset_class`).
 16. **Shutter e posizioni su Kraken Futures non verificati**: `percent_closing` e
     `check_reduce_only_order` sono stati scritti per Bybit.
-17. **Mercati fermi danno falsi segnali**: se il prezzo non si muove mai (es. `GBP/USD:USD`,
-    `CHF/USD:USD` sui futures: 1000 candele identiche) RSI e SAR votano entrambi LONG.
-    Con il filtro `volume` sono esclusi, con `all` no. Da saltare in `check_symbol`.
-18. **Simbolo senza candele**: `check_symbol` lo salta ma con un messaggio poco chiaro
-    ("single positional indexer is out-of-bounds").
+17. ~~**Mercati fermi danno falsi segnali**~~ — RISOLTO: `check_symbol` salta i simboli
+    con meno di `MIN_ACTIVE_CANDLES` candele mosse nelle ultime `ACTIVITY_CANDLES`
+    (`settings.py`, 10 su 60). Su 1m sono saltati ~127 perpetual su 204: hanno pochissimi scambi.
+18. ~~**Simbolo senza candele**~~ — RISOLTO: saltato prima di calcolare gli indicatori.
+    A fine giro lo spotter scrive quanti simboli ha controllato e quanti ha saltato.
 
 ---
 

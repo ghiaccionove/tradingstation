@@ -16,6 +16,13 @@ PAUSE_SECONDS = 60
 # Volume minimo nelle ultime 24 ore (in dollari) per il filtro 'volume'
 MIN_VOLUME = 1000000
 
+# Mercati fermi: un simbolo viene saltato se nelle ultime ACTIVITY_CANDLES candele
+# meno di MIN_ACTIVE_CANDLES hanno avuto un movimento di prezzo (massimo diverso dal minimo).
+# Su mercati con pochi scambi gli indicatori danno segnali senza senso.
+# Mettere MIN_ACTIVE_CANDLES = 0 per non saltare mai nulla.
+ACTIVITY_CANDLES = 60
+MIN_ACTIVE_CANDLES = 10
+
 # --- Indicatori ---
 
 # Ogni indicatore si accende/spegne con 'enabled' e ha i suoi parametri.
