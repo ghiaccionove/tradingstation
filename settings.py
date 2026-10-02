@@ -23,6 +23,8 @@ MIN_VOLUME = 1000000
 #   rsi        -> LONG se ipervenduto (sotto 'oversold'), SHORT se ipercomprato (sopra 'overbought')
 #   sar        -> LONG se il prezzo è sopra il SAR parabolico, SHORT se è sotto
 #   volatility -> se la volatilità supera 'threshold' conferma entrambe le direzioni (BOTH)
+#                 volatilità = movimento tipico del prezzo in un'ora, calcolato sulle ultime
+#                 'period' candele (0.013 = 1,3% all'ora; mediana dei perpetual più scambiati ~0.008)
 INDICATORS = {
     'rsi':        {'enabled': True, 'period': 14, 'overbought': 66, 'oversold': 34},
     'sar':        {'enabled': True, 'acceleration': 0.02, 'maximum': 0.2},
@@ -32,4 +34,4 @@ INDICATORS = {
 # Quanti indicatori accesi devono essere d'accordo per far partire un avviso.
 #   'all' -> tutti quelli accesi (es. 3 su 3)
 #   un numero, es. 2 -> almeno 2 di quelli accesi (es. 2 su 3)
-MIN_SIGNALS = 'all'
+MIN_SIGNALS = 2

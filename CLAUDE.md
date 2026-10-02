@@ -65,7 +65,7 @@ utils/
   completers.py             Autocompletamento per i prompt
 
 signals/
-  indicators.py             Calcolo indicatori (RSI, SAR parabolico, volatilità) con TA-Lib
+  indicators.py             Calcolo indicatori (RSI, SAR, volatilità oraria): restituiscono serie di valori
   signals_generator.py      Trasforma un indicatore in un segnale (es. OVERSOLD)
   signal_types.py           Costanti dei segnali (BUY, SELL, OVERBOUGHT, LONG, SHORT, BOTH, ...)
   votes.py                  Voto di ogni indicatore acceso + conteggio (decide LONG/SHORT)
@@ -134,10 +134,11 @@ Quelli risolti sono barrati.
    (`quoteVolume` = `None`) vengono saltati.
 4. ~~**Strategia fissa**~~ — RISOLTO: indicatori accesi/spenti in `settings.py` (`INDICATORS`)
    e numero minimo di indicatori d'accordo (`MIN_SIGNALS`). Con `'all'` equivale a Valubot (verificato).
-5. **Indicatori modificano il DataFrame** aggiungendo colonne (`data['rsi'] = ...`).
-   Funziona, ma va deciso uno stile unico (vedi commento in `indicators.py`).
-6. **Volatilità**: il commento dice "annualizzata" ma il calcolo usa `sqrt(60)`;
-   chiarire cosa si vuole misurare.
+5. ~~**Indicatori modificano il DataFrame**~~ — RISOLTO: ogni funzione in `indicators.py`
+   restituisce la serie di valori e non aggiunge colonne (regola scritta in cima al file).
+6. ~~**Volatilità**~~ — RISOLTO: è la volatilità **oraria** (0.013 = 1,3% all'ora). Prima
+   moltiplicava sempre per √60, giusto solo con candele da 1m: con 15m o 1h risultava
+   gonfiata di 4-8 volte. Ora la scala si ricava dalla durata delle candele.
 7. **`check_reduce_only_order`** esce dal ciclo al primo ordine (il `return False`
    nell'`else` interrompe il `for`) e non distingue take profit da stop loss.
 8. **Valori di default mutabili** `params={}` in `OrderManager`: meglio `params=None`.
@@ -192,6 +193,7 @@ Come funziona (implementato in `signals/votes.py`):
 - Lo spotter, per ogni simbolo, calcola solo gli indicatori con `enabled: True`
   e invia un avviso quando le condizioni scelte sono soddisfatte.
 - [x] Timeframe configurabile e filtro volume veloce (`settings.py`).
+- [x] Stile unico degli indicatori e volatilità oraria indipendente dal timeframe.
 - [ ] Niente avvisi ripetuti per lo stesso simbolo a pochi minuti di distanza.
 - [x] Indicatori attivabili (`INDICATORS`) e combinazione: tutti (`MIN_SIGNALS = 'all'`)
       oppure almeno N (`MIN_SIGNALS = 2`). Avviso tipo "3 indicatori su 5".
