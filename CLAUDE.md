@@ -219,6 +219,12 @@ Come funziona (implementato in `signals/votes.py`):
       votare solo all'inversione e se la volatilità debba essere un filtro invece che un voto.
 - In seguito: attivare/disattivare indicatori dal prompt senza modificare il file.
 
+- [x] Modi di voto (`'mode'` in `INDICATORS`): lo stesso indicatore può votare in modi diversi.
+      RSI: `'reversal'` (ipervenduto = LONG) o `'trend'` (sopra 50 = LONG).
+      SAR: `'direction'` (vota sempre) o `'flip'` (vota solo se si è girato nelle ultime
+      `flip_candles` candele). Si possono mescolare apposta (es. trend + inversione =
+      "compra il ribasso dentro un trend").
+
 #### Nuovi indicatori (vedi `docs/letteratura.md`)
 - [x] Documento con la letteratura verificata su indicatori di trend, oscillatori,
       volatilità, volume e dati dei perpetual (funding rate, open interest).

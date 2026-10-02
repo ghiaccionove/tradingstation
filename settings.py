@@ -32,9 +32,15 @@ ALERT_COOLDOWN_MINUTES = 60
 # --- Indicatori ---
 
 # Ogni indicatore si accende/spegne con 'enabled' e ha i suoi parametri.
+# Alcuni indicatori hanno più modi di votare, scelti con 'mode'.
 # Ogni indicatore acceso "vota" una direzione:
-#   rsi        -> LONG se ipervenduto (sotto 'oversold'), SHORT se ipercomprato (sopra 'overbought')
-#   sar        -> LONG se il prezzo è sopra il SAR parabolico, SHORT se è sotto
+#   rsi        -> mode 'reversal' (inversione): LONG se ipervenduto (sotto 'oversold'),
+#                                               SHORT se ipercomprato (sopra 'overbought')
+#                 mode 'trend': LONG se RSI sopra 50, SHORT se sotto 50
+#                               ('overbought' e 'oversold' non vengono usati)
+#   sar        -> mode 'direction': vota sempre, LONG se il prezzo è sopra il SAR, SHORT se è sotto
+#                 mode 'flip' (inversione): vota solo se il SAR si è girato nelle ultime
+#                               'flip_candles' candele (LONG se girato al rialzo, SHORT se al ribasso)
 #   volatility -> se la volatilità supera 'threshold' conferma entrambe le direzioni (BOTH)
 #                 volatilità = movimento tipico del prezzo in un'ora, calcolato sulle ultime
 #                 'period' candele (0.013 = 1,3% all'ora; mediana dei perpetual più scambiati ~0.008)
@@ -44,8 +50,8 @@ ALERT_COOLDOWN_MINUTES = 60
 #                 'period' = candele per l'ATR, 'average_period' = candele per la media "normale".
 #                 È un'alternativa a 'volatility': di solito se ne accende solo uno dei due.
 INDICATORS = {
-    'rsi':        {'enabled': True, 'period': 14, 'overbought': 66, 'oversold': 34},
-    'sar':        {'enabled': True, 'acceleration': 0.02, 'maximum': 0.2},
+    'rsi':        {'enabled': True, 'mode': 'reversal', 'period': 14, 'overbought': 66, 'oversold': 34},
+    'sar':        {'enabled': True, 'mode': 'direction', 'acceleration': 0.02, 'maximum': 0.2, 'flip_candles': 3},
     'volatility': {'enabled': True, 'period': 60, 'threshold': 0.013},
     'atr':        {'enabled': False, 'period': 14, 'average_period': 100, 'threshold': 1.5},
 }

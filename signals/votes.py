@@ -6,26 +6,52 @@ LONG, SHORT, BOTH (conferma entrambe) oppure None (nessun segnale).
 Poi si contano i voti: se abbastanza indicatori sono d'accordo, c'è un segnale.
 '''
 from signals.signal_types import Signal
-from signals.signals_generator import rsi_signal, parabolic_trend, volatility_signal, atr_signal
+from signals.signals_generator import rsi_signal, rsi_trend_signal, parabolic_trend, parabolic_flip
+from signals.signals_generator import volatility_signal, atr_signal
 from settings import INDICATORS, MIN_SIGNALS
 
 
 # --- Il voto di ogni indicatore ---
 
 def rsi_vote(data, settings):
-    signal = rsi_signal(data, overbought=settings['overbought'], oversold=settings['oversold'],
-                        period=settings['period'])
-    if signal == Signal.OVERSOLD:
-        return Signal.LONG
-    if signal == Signal.OVERBOUGHT:
-        return Signal.SHORT
-    return None
+    mode = settings['mode']
+    if mode == 'reversal':
+        # inversione: è sceso troppo -> può rimbalzare (LONG), è salito troppo -> può scendere (SHORT)
+        signal = rsi_signal(data, overbought=settings['overbought'], oversold=settings['oversold'],
+                            period=settings['period'])
+        if signal == Signal.OVERSOLD:
+            return Signal.LONG
+        if signal == Signal.OVERBOUGHT:
+            return Signal.SHORT
+        return None
+    if mode == 'trend':
+        # trend: sopra 50 prevalgono i rialzi (LONG), sotto 50 i ribassi (SHORT)
+        signal = rsi_trend_signal(data, period=settings['period'])
+        if signal == Signal.UP:
+            return Signal.LONG
+        if signal == Signal.DOWN:
+            return Signal.SHORT
+        return None
+    raise ValueError(f"mode '{mode}' non valido per rsi: usare 'reversal' o 'trend'")
 
 def sar_vote(data, settings):
-    signal = parabolic_trend(data, acceleration=settings['acceleration'], maximum=settings['maximum'])
-    if signal == Signal.UP:
-        return Signal.LONG
-    return Signal.SHORT
+    mode = settings['mode']
+    if mode == 'direction':
+        # vota sempre: prezzo sopra il SAR -> LONG, sotto -> SHORT
+        signal = parabolic_trend(data, acceleration=settings['acceleration'], maximum=settings['maximum'])
+        if signal == Signal.UP:
+            return Signal.LONG
+        return Signal.SHORT
+    if mode == 'flip':
+        # vota solo se il SAR si è girato da poco (nelle ultime 'flip_candles' candele)
+        signal = parabolic_flip(data, acceleration=settings['acceleration'], maximum=settings['maximum'],
+                                flip_candles=settings['flip_candles'])
+        if signal == Signal.UP:
+            return Signal.LONG
+        if signal == Signal.DOWN:
+            return Signal.SHORT
+        return None
+    raise ValueError(f"mode '{mode}' non valido per sar: usare 'direction' o 'flip'")
 
 def volatility_vote(data, settings):
     signal, latest_volatility = volatility_signal(data, period=settings['period'],
