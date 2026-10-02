@@ -202,7 +202,13 @@ Come funziona (implementato in `signals/votes.py`):
 - [x] ATR relativo (`'atr'` in `INDICATORS`, spento di default): alternativa a `volatility`
       che confronta ogni simbolo con se stesso. Soglia 1.5 superata ~10% delle volte
       (misurato su 1m e 15m), distribuita su molti simboli invece che sempre sui soliti.
-- [ ] Niente avvisi ripetuti per lo stesso simbolo a pochi minuti di distanza.
+- [x] Niente avvisi ripetuti: stesso simbolo e stessa direzione non vengono reinviati prima di
+      `ALERT_COOLDOWN_MINUTES` (60). Se la direzione cambia l'avviso parte subito.
+      La memoria degli avvisi si azzera al riavvio dello spotter.
+- [ ] Da osservare: il SAR può ribaltarsi LONG/SHORT su una candela ancora in corso
+      (visto su QNT, stesso prezzo a pochi secondi di distanza) e far ripartire l'avviso.
+      Se diventa fastidioso: cooldown per simbolo indipendente dalla direzione, oppure
+      calcolare gli indicatori solo sulle candele chiuse (escludendo l'ultima, ancora in corso).
 - [x] Indicatori attivabili (`INDICATORS`) e combinazione: tutti (`MIN_SIGNALS = 'all'`)
       oppure almeno N (`MIN_SIGNALS = 2`). Avviso tipo "3 indicatori su 5".
 - [ ] SAR vota sempre (LONG o SHORT) e la volatilità vota BOTH: con `MIN_SIGNALS` basso

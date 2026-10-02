@@ -23,6 +23,12 @@ MIN_VOLUME = 1000000
 ACTIVITY_CANDLES = 60
 MIN_ACTIVE_CANDLES = 10
 
+# Avvisi ripetuti: lo stesso avviso (stesso simbolo, stessa direzione) non viene
+# reinviato prima che siano passati ALERT_COOLDOWN_MINUTES minuti.
+# Se la direzione cambia (es. da LONG a SHORT) l'avviso parte subito.
+# Mettere 0 per ricevere l'avviso a ogni giro.
+ALERT_COOLDOWN_MINUTES = 60
+
 # --- Indicatori ---
 
 # Ogni indicatore si accende/spegne con 'enabled' e ha i suoi parametri.
