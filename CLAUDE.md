@@ -157,7 +157,8 @@ Quelli risolti sono barrati.
 13. ~~Commento "don't know if others than bybit works" in `main.py`~~ — RISOLTO:
     la connessione a Kraken funziona (anche senza chiavi API).
 14. ~~**Filtro volume lento**~~ — RISOLTO: `fetch_all_tickers()` scarica tutti i ticker
-    con una sola richiesta (meno di 1 secondo). Soglia in `settings.py` (`MIN_VOLUME`, 1 milione $).
+    con una sola richiesta (meno di 1 secondo). Soglia in `settings.py` (`MIN_VOLUME`, 1 milione $;
+    `MIN_VOLUME_TRADFI`, 300 mila $, per i mercati tradizionali che sono molto meno scambiati).
 15. **Ordini sui mercati tradfi non ancora verificati** (azioni, oro, forex...):
     da controllare in Fase 2 (su Kraken spot probabilmente serve `asset_class`).
 16. **Shutter e posizioni su Kraken Futures non verificati**: `percent_closing` e

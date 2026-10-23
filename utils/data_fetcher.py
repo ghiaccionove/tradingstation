@@ -1,7 +1,7 @@
 import pandas as pd
 from logger import logger
 from config import MARKET_TYPE
-from settings import TIMEFRAME, CANDLES_LIMIT, MIN_VOLUME
+from settings import TIMEFRAME, CANDLES_LIMIT, MIN_VOLUME, MIN_VOLUME_TRADFI
 
 # Categorie di Kraken Futures che consideriamo mercati tradizionali ('tradfi').
 # Tutte le altre (DeFi, Meme, AI, Layer 1, ...) sono considerate 'crypto'.
@@ -96,7 +96,17 @@ def fetch_all_tickers(exchange, symbols):
         tickers.update(exchange.ccxt.fetch_tickers(tokenized_symbols, params={'asset_class': 'tokenized_asset'}))
     return tickers
 
-def filter_symbols_by_volume(exchange, symbols, min_volume=MIN_VOLUME):
+def get_min_volume(exchange, symbol):
+    '''
+    volume minimo richiesto per un simbolo: i mercati tradizionali (tradfi)
+    hanno una soglia più bassa perché sono molto meno scambiati delle crypto.
+    '''
+    market = exchange.ccxt.markets[symbol]
+    if get_market_category(market) == 'tradfi':
+        return MIN_VOLUME_TRADFI
+    return MIN_VOLUME
+
+def filter_symbols_by_volume(exchange, symbols):
     filtered_symbols = []
     tickers = fetch_all_tickers(exchange, symbols)
     for symbol in symbols:
@@ -105,7 +115,7 @@ def filter_symbols_by_volume(exchange, symbols, min_volume=MIN_VOLUME):
         volume = get_quote_volume(tickers[symbol])
         if volume is None:  # alcuni mercati non hanno il dato del volume
             continue
-        if volume >= min_volume:
+        if volume >= get_min_volume(exchange, symbol):
             filtered_symbols.append(symbol)
     return filtered_symbols
 
@@ -142,6 +152,7 @@ def select_symbols(exchange, fetch_mode, category):
     '''
     sceglie i simboli da analizzare, come richiesto all'avvio:
     fetch_mode 'all' = tutti, 'volume' = solo quelli con volume sopra MIN_VOLUME
+    (MIN_VOLUME_TRADFI per i mercati tradizionali)
     '''
     logger.info('Fetching symbols')
     symbols = fetch_symbols(exchange, category=category)
