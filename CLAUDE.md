@@ -50,9 +50,9 @@ generico grazie a `ccxt` (il nome dell'exchange è un parametro, non va scritto
 ## 3. Struttura attuale
 
 ```
-main.py                     Punto di ingresso: chiede la modalità (prompt_toolkit)
+main.py                     Punto di ingresso: chiede la modalità e il profilo (prompt_toolkit)
 config.py                   Chiavi API, token Telegram, exchange (NON versionato, in .gitignore)
-settings.py                 Impostazioni di trading: timeframe, pausa, volume, INDICATORS, MIN_SIGNALS (versionato)
+settings.py                 Impostazioni di trading: pausa, volume, gruppi di indicatori, PROFILES (versionato)
 logger.py                   Logger: file + console + Telegram (livello WARNING)
 
 alerts/
@@ -89,10 +89,14 @@ orders/
 ```
 
 Flusso attuale dello spotter:
-`main.py` → `spotter()` → `fetch_symbols` → (filtro volume) → loop:
+`main.py` → scelta del profilo (`PROFILES` in `settings.py`) → `spotter()` → `fetch_symbols` → (filtro volume) → loop:
 `fetch_market_data` → `get_votes` → `decide` → (se c'è un segnale) `logger.warning` → Telegram.
 
-Esempio di avviso: `SHORT su ADA/USD:USD a 0.24594 - 2 indicatori su 3 (sar, volatility)`
+Un **profilo** raccoglie categoria di mercati, filtro, timeframe, gruppo di indicatori,
+`min_signals` e piattaforma su cui operare. Le funzioni ricevono il profilo come parametro
+invece di leggere le impostazioni direttamente da `settings.py`.
+
+Esempio di avviso: `SHORT su ADA/USD:USD a 0.24594 - 2 indicatori su 3 (sar, volatility) [Kraken]`
 
 Il meccanismo degli avvisi è semplice e funziona bene: **un `logger.warning(...)`
 diventa automaticamente un messaggio Telegram.** `logger.info` resta solo in console/file.
@@ -151,19 +155,20 @@ Quelli risolti sono barrati.
 10. ~~**Dipendenze da ripulire**~~ — RISOLTO: tolte `logging`, `seaborn`,
     `scikit-learn`, `ipykernel`; aggiunta `requests`.
 11. ~~**Spotter senza pausa**~~ — RISOLTO: pausa tra un giro e l'altro e timeframe
-    configurabili in `settings.py` (`PAUSE_SECONDS`, `TIMEFRAME`, `CANDLES_LIMIT`).
+    configurabili in `settings.py` (ora `pause_seconds` e `timeframe` nei profili, `CANDLES_LIMIT`).
 12. ~~**Errore nel ciclo = spotter fermo**~~ — RISOLTO: `check_symbol()` gestisce gli
     errori del singolo simbolo, lo salta e prosegue (scritto come INFO, non va su Telegram).
 13. ~~Commento "don't know if others than bybit works" in `main.py`~~ — RISOLTO:
     la connessione a Kraken funziona (anche senza chiavi API).
 14. ~~**Filtro volume lento**~~ — RISOLTO: `fetch_all_tickers()` scarica tutti i ticker
-    con una sola richiesta (meno di 1 secondo). Soglia in `settings.py` (`MIN_VOLUME`, 1 milione $).
+    con una sola richiesta (meno di 1 secondo). Soglia in `settings.py` (`MIN_VOLUME`, 1 milione $;
+    `MIN_VOLUME_TRADFI`, 300 mila $, per i mercati tradizionali che sono molto meno scambiati).
 15. **Ordini sui mercati tradfi non ancora verificati** (azioni, oro, forex...):
     da controllare in Fase 2 (su Kraken spot probabilmente serve `asset_class`).
 16. **Shutter e posizioni su Kraken Futures non verificati**: `percent_closing` e
     `check_reduce_only_order` sono stati scritti per Bybit.
 17. ~~**Mercati fermi danno falsi segnali**~~ — RISOLTO: `check_symbol` salta i simboli
-    con meno di `MIN_ACTIVE_CANDLES` candele mosse nelle ultime `ACTIVITY_CANDLES`
+    con meno di `min_active_candles` candele mosse nelle ultime `activity_candles` (nei profili)
     (`settings.py`, 10 su 60). Su 1m sono saltati ~127 perpetual su 204: hanno pochissimi scambi.
 18. ~~**Simbolo senza candele**~~ — RISOLTO: saltato prima di calcolare gli indicatori.
     A fine giro lo spotter scrive quanti simboli ha controllato e quanti ha saltato.
@@ -207,7 +212,7 @@ Come funziona (implementato in `signals/votes.py`):
       che confronta ogni simbolo con se stesso. Soglia 1.5 superata ~10% delle volte
       (misurato su 1m e 15m), distribuita su molti simboli invece che sempre sui soliti.
 - [x] Niente avvisi ripetuti: stesso simbolo e stessa direzione non vengono reinviati prima di
-      `ALERT_COOLDOWN_MINUTES` (60). Se la direzione cambia l'avviso parte subito.
+      `alert_cooldown_minutes` (60, nei profili). Se la direzione cambia l'avviso parte subito.
       La memoria degli avvisi si azzera al riavvio dello spotter.
 - [ ] Da osservare: il SAR può ribaltarsi LONG/SHORT su una candela ancora in corso
       (visto su QNT, stesso prezzo a pochi secondi di distanza) e far ripartire l'avviso.
@@ -239,6 +244,22 @@ Come funziona (implementato in `signals/votes.py`):
       ADX come filtro, rottura di canale, funding rate.
 - Regola: **un indicatore per gruppo** (vedi tabella delle ridondanze nel documento),
   per non far votare più volte la stessa idea.
+
+#### Avvisi anche sulle azioni tradizionali
+Obiettivo: stessi avvisi anche su azioni USA, borse europee ed ETF, per operare **a mano**
+su Kraken (azioni USA) o Trade Republic. L'algoritmico resta su Kraken (crypto e xStocks).
+- [x] Soglia di volume separata per le tradfi di Kraken (`MIN_VOLUME_TRADFI`).
+- [x] Profili in `settings.py` (`PROFILES`): ogni profilo ha mercati, timeframe, indicatori,
+      `min_signals` e piattaforma. Più profili insieme = più terminali.
+      Verificato: stessi segnali di prima sugli stessi dati.
+- [x] Nei profili anche `pause_seconds`, `alert_cooldown_minutes`, `activity_candles` e
+      `min_active_candles`, da adattare al timeframe (con 1h, 60 candele = 60 ore).
+      Restano comuni solo le impostazioni di `evaluate` e del volume.
+- [ ] Fonte dati Yahoo (`yfinance`, da approvare come dipendenza) con lo stesso DataFrame
+      di ccxt, e watchlist fisse (es. FTSE MIB, titoli USA, ETF).
+      Provato: 1m per ~8 giorni, 1h per ~2 anni, Milano con ~15 min di ritardo.
+- [ ] Orari di borsa: saltare i titoli se l'ultima candela è troppo vecchia.
+- [ ] `evaluate` sulle azioni, per scegliere timeframe e indicatori.
 
 ### Fase 2 — Ordini manuali in reazione agli avvisi
 - Dall'avviso proporre un ordine precompilato (simbolo, lato) da confermare a mano.
@@ -283,6 +304,14 @@ Come funziona (implementato in `signals/votes.py`):
     aggiunto in automatico da `get_request_params()`;
   - si riconoscono da `market['info']['aclass_base'] == 'tokenized_asset'`.
 - Restituisce al massimo **720 candele** per richiesta.
+
+### Azioni vere di Kraken (verificato a ottobre 2026)
+- Dall'app Kraken si comprano anche oltre 7.000 azioni USA **vere** (es. `E` Eni, `STLA`
+  Stellantis), senza la x finale. **Non sono raggiungibili via API**: né le API pubbliche
+  di Kraken (classi valide solo `currency` e `tokenized_asset`) né ccxt (provata anche
+  l'ultima versione). Per avere avvisi su questi titoli serve un'altra fonte dati (Yahoo).
+- Su Kraken Futures le azioni con ticker puro (categoria `Equities`, es. `MU/USD:USD`)
+  sono perpetual, non azioni vere.
 
 ### In generale
 - I mercati azionari fuori dall'orario di borsa USA hanno pochi scambi: il prezzo può

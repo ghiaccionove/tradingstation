@@ -15,7 +15,7 @@ from signals.votes import get_votes, decide
 from signals.signal_types import Signal
 from signals.indicators import get_candle_minutes
 from modes.spotter_mode import log_indicator_settings
-from settings import TIMEFRAME, CANDLES_LIMIT, ACTIVITY_CANDLES, MIN_ACTIVE_CANDLES, ALERT_COOLDOWN_MINUTES
+from settings import PROFILES, CANDLES_LIMIT
 from settings import EVAL_CANDLES, EVAL_HORIZONS, EVAL_FEE_PERCENT
 
 # candele iniziali da non valutare: servono agli indicatori per "scaldarsi"
@@ -28,11 +28,13 @@ MIN_RELIABLE_SIGNALS = 30
 RESULTS_FOLDER = 'evaluations'
 
 
-def evaluate(exchange, fetch_mode, category):
+def evaluate(exchange, profile_name):
     try:
-        symbols = select_symbols(exchange, fetch_mode, category)
-        log_indicator_settings()
-        logger.info('Valutazione su %s candele da %s per simbolo', EVAL_CANDLES, TIMEFRAME)
+        profile = PROFILES[profile_name]
+        logger.info('Profilo: %s', profile_name)
+        symbols = select_symbols(exchange, profile['filter'], profile['category'])
+        log_indicator_settings(profile)
+        logger.info('Valutazione su %s candele da %s per simbolo', EVAL_CANDLES, profile['timeframe'])
         all_signals = []
         all_candles = []   # tutte le candele valutate, per il confronto "a caso"
         number = 0
@@ -40,15 +42,15 @@ def evaluate(exchange, fetch_mode, category):
             number = number + 1
             logger.info('[%s/%s] %s', number, len(symbols), symbol)
             try:
-                data = fetch_history(exchange, symbol, EVAL_CANDLES)
-                signals, candles = evaluate_symbol(data, symbol)
+                data = fetch_history(exchange, symbol, EVAL_CANDLES, profile['timeframe'])
+                signals, candles = evaluate_symbol(data, symbol, profile)
                 all_signals = all_signals + signals
                 all_candles = all_candles + candles
             except Exception as e:
                 logger.info('Errore su %s, lo salto: %s', symbol, e)
         signals_table = pd.DataFrame(all_signals)
         candles_table = pd.DataFrame(all_candles)
-        print_report(signals_table, candles_table)
+        print_report(signals_table, candles_table, profile['timeframe'])
         save_signals(signals_table)
     except KeyboardInterrupt:
         logger.info('Valutazione interrotta')
@@ -59,9 +61,9 @@ def price_change_percent(closes, t, candles_after):
     return (closes.iloc[t + candles_after] / closes.iloc[t] - 1) * 100
 
 
-def evaluate_symbol(data, symbol):
+def evaluate_symbol(data, symbol, profile):
     '''
-    scorre la storia di un simbolo e restituisce due elenchi:
+    scorre la storia di un simbolo con la strategia del profilo e restituisce due elenchi:
     - signals: i segnali trovati, con il risultato dopo ogni orizzonte (al netto delle commissioni)
     - candles: tutte le candele valutate, con la variazione di prezzo (serve per il confronto "a caso")
     '''
@@ -72,7 +74,7 @@ def evaluate_symbol(data, symbol):
         return signals, candles
 
     closes = data['close']
-    cooldown_candles = ALERT_COOLDOWN_MINUTES / get_candle_minutes(data)
+    cooldown_candles = profile['alert_cooldown_minutes'] / get_candle_minutes(data)
     last_direction = None
     last_index = None
     # ci servono candele "future" per misurare il risultato: ci fermiamo prima della fine
@@ -88,7 +90,7 @@ def evaluate_symbol(data, symbol):
         candle_time = pd.to_datetime(data['timestamp'].iloc[t], unit='ms')
         # le ultime candele fino a t, come le vedrebbe lo spotter in quel momento
         window = data.iloc[max(0, t + 1 - CANDLES_LIMIT):t + 1]
-        if count_active_candles(window, ACTIVITY_CANDLES) < MIN_ACTIVE_CANDLES:
+        if count_active_candles(window, profile['activity_candles']) < profile['min_active_candles']:
             continue   # mercato fermo: lo spotter lo salterebbe
 
         # ogni candela valutata serve al confronto "a caso"
@@ -97,7 +99,7 @@ def evaluate_symbol(data, symbol):
             candle[f'change_{h}'] = price_change_percent(closes, t, h)
         candles.append(candle)
 
-        direction, agreeing, enabled_count = decide(get_votes(window))
+        direction, agreeing, enabled_count = decide(get_votes(window, profile['indicators']), profile['min_signals'])
         if direction is None:
             continue
         # blocco degli avvisi ripetuti, come nello spotter
@@ -123,11 +125,11 @@ def evaluate_symbol(data, symbol):
     return signals, candles
 
 
-def print_report(signals, candles):
+def print_report(signals, candles, timeframe):
     print()
     print('=' * 100)
     print('RISULTATI DELLA VALUTAZIONE')
-    print(f'Timeframe {TIMEFRAME}. Risultati in % al netto delle commissioni ({EVAL_FEE_PERCENT}% andata e ritorno).')
+    print(f'Timeframe {timeframe}. Risultati in % al netto delle commissioni ({EVAL_FEE_PERCENT}% andata e ritorno).')
     print('"A caso" = entrare in una candela qualsiasi, nella stessa direzione e nello stesso periodo.')
     print('=' * 100)
     if len(signals) == 0:
