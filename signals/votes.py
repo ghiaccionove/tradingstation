@@ -1,14 +1,13 @@
 '''
 Votazione degli indicatori.
 
-Ogni indicatore acceso in settings.py "vota" una direzione:
+Ogni indicatore acceso nel profilo scelto (settings.py) "vota" una direzione:
 LONG, SHORT, BOTH (conferma entrambe) oppure None (nessun segnale).
 Poi si contano i voti: se abbastanza indicatori sono d'accordo, c'è un segnale.
 '''
 from signals.signal_types import Signal
 from signals.signals_generator import rsi_signal, rsi_trend_signal, parabolic_trend, parabolic_flip
 from signals.signals_generator import volatility_signal, atr_signal
-from settings import INDICATORS, MIN_SIGNALS
 
 
 # --- Il voto di ogni indicatore ---
@@ -71,30 +70,31 @@ def atr_vote(data, settings):
 
 # --- Raccolta e conteggio dei voti ---
 
-def get_votes(data):
+def get_votes(data, indicators):
     '''
     calcola solo gli indicatori accesi e restituisce i loro voti, es.
     {'rsi': 'LONG', 'sar': 'LONG', 'volatility': None}
+    indicators: le impostazioni degli indicatori del profilo (es. INDICATORS_BASE in settings.py)
     Per aggiungere un indicatore: scrivere la sua funzione ..._vote e aggiungere un blocco qui.
     '''
     votes = {}
-    if INDICATORS['rsi']['enabled']:
-        votes['rsi'] = rsi_vote(data, INDICATORS['rsi'])
-    if INDICATORS['sar']['enabled']:
-        votes['sar'] = sar_vote(data, INDICATORS['sar'])
-    if INDICATORS['volatility']['enabled']:
-        votes['volatility'] = volatility_vote(data, INDICATORS['volatility'])
-    if INDICATORS['atr']['enabled']:
-        votes['atr'] = atr_vote(data, INDICATORS['atr'])
+    if indicators['rsi']['enabled']:
+        votes['rsi'] = rsi_vote(data, indicators['rsi'])
+    if indicators['sar']['enabled']:
+        votes['sar'] = sar_vote(data, indicators['sar'])
+    if indicators['volatility']['enabled']:
+        votes['volatility'] = volatility_vote(data, indicators['volatility'])
+    if indicators['atr']['enabled']:
+        votes['atr'] = atr_vote(data, indicators['atr'])
     return votes
 
-def get_required_signals(enabled_count):
-    '''quanti indicatori devono essere d'accordo, in base a MIN_SIGNALS'''
-    if MIN_SIGNALS == 'all':
+def get_required_signals(enabled_count, min_signals):
+    '''quanti indicatori devono essere d'accordo, in base a min_signals del profilo'''
+    if min_signals == 'all':
         return enabled_count
-    return MIN_SIGNALS
+    return min_signals
 
-def decide(votes):
+def decide(votes, min_signals):
     '''
     conta i voti e decide la direzione.
     Restituisce (direzione, nomi degli indicatori d'accordo, quanti indicatori sono accesi).
@@ -112,7 +112,7 @@ def decide(votes):
     enabled_count = len(votes)
     if enabled_count == 0:
         return None, [], 0
-    required = get_required_signals(enabled_count)
+    required = get_required_signals(enabled_count, min_signals)
 
     is_long = len(long_indicators) >= required
     is_short = len(short_indicators) >= required

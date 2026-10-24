@@ -9,6 +9,15 @@ from prompt_toolkit.completion import WordCompleter
 from utils.data_fetcher import fetch_symbols
 from utils import completers
 from config import EXCHANGE_NAME
+from settings import PROFILES
+
+def ask_profile(session):
+        '''chiede quale profilo usare (definiti in settings.py); None se il nome non esiste'''
+        profile_name = session.prompt('Quale profilo? > ', completer=completers.profile_completer)
+        if profile_name not in PROFILES:
+                logger.info('Profilo "%s" non trovato. Profili disponibili: %s', profile_name, ', '.join(PROFILES))
+                return None
+        return profile_name
 
 def main():
         session = PromptSession()
@@ -17,13 +26,13 @@ def main():
 
         mode_input = session.prompt('Trading Station Mode > ', completer=completers.mode_completer)
         if mode_input == 'spotter':
-                fetch_mode = session.prompt('Su quali simboli avvio la ricerca? > ', completer=completers.fetch_completer)
-                category = session.prompt('Quali mercati? (crypto/tradfi/all) > ', completer=completers.category_completer)
-                spotter(exchange,fetch_mode,category)
+                profile_name = ask_profile(session)
+                if profile_name is not None:
+                        spotter(exchange,profile_name)
         elif mode_input == 'evaluate':
-                fetch_mode = session.prompt('Su quali simboli valuto i segnali? > ', completer=completers.fetch_completer)
-                category = session.prompt('Quali mercati? (crypto/tradfi/all) > ', completer=completers.category_completer)
-                evaluate(exchange,fetch_mode,category)
+                profile_name = ask_profile(session)
+                if profile_name is not None:
+                        evaluate(exchange,profile_name)
         elif mode_input == 'shut':
                 shutter(exchange)
         elif mode_input == 'auto':

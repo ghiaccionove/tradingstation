@@ -1,7 +1,7 @@
 import pandas as pd
 from logger import logger
 from config import MARKET_TYPE
-from settings import TIMEFRAME, CANDLES_LIMIT, MIN_VOLUME, MIN_VOLUME_TRADFI
+from settings import CANDLES_LIMIT, MIN_VOLUME, MIN_VOLUME_TRADFI
 
 # Categorie di Kraken Futures che consideriamo mercati tradizionali ('tradfi').
 # Tutte le altre (DeFi, Meme, AI, Layer 1, ...) sono considerate 'crypto'.
@@ -32,7 +32,7 @@ def get_request_params(exchange, symbol):
         return {'asset_class': 'tokenized_asset'}
     return {}
 
-def fetch_market_data(exchange, symbol, timeframe=TIMEFRAME, limit=CANDLES_LIMIT):
+def fetch_market_data(exchange, symbol, timeframe, limit=CANDLES_LIMIT):
     logger.info('%s', symbol)
     params = get_request_params(exchange, symbol)
     data = pd.DataFrame(exchange.ccxt.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit, params=params),
@@ -125,7 +125,7 @@ def count_active_candles(data, last_candles):
     moved = recent['high'] != recent['low']
     return int(moved.sum())
 
-def fetch_history(exchange, symbol, total_candles, timeframe=TIMEFRAME):
+def fetch_history(exchange, symbol, total_candles, timeframe):
     '''
     scarica le ultime `total_candles` candele chiuse, a pagine da 1000
     (Kraken Futures non ne restituisce di più per richiesta).
