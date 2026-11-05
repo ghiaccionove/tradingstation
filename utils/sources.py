@@ -2,8 +2,10 @@
 Da dove arrivano i dati: sceglie tra Kraken (ccxt) e Yahoo in base al profilo ('source').
 Spotter ed evaluate usano solo queste funzioni, così non devono sapere quale fonte è attiva.
 '''
+import time
 from logger import logger
 from settings import CANDLES_LIMIT
+from signals.indicators import get_candle_minutes
 from utils.data_fetcher import select_symbols, fetch_market_data, fetch_history
 from utils.yahoo_fetcher import fetch_yahoo_data, fetch_yahoo_history
 
@@ -19,6 +21,22 @@ def get_candles(exchange, symbol, profile):
     if profile['source'] == 'yahoo':
         return fetch_yahoo_data(symbol, profile['timeframe'], CANDLES_LIMIT)
     return fetch_market_data(exchange, symbol, profile['timeframe'])
+
+def remove_open_candle(data):
+    '''
+    toglie l'ultima candela se non è ancora finita: prezzo e volume sarebbero parziali.
+    Così lo spotter vede le stesse candele chiuse su cui evaluate misura i segnali.
+    '''
+    if len(data) < 2:
+        return data
+    candle_end = data['timestamp'].iloc[-1] + get_candle_minutes(data) * 60000
+    if candle_end > time.time() * 1000:
+        return data.iloc[:-1]
+    return data
+
+def get_closed_candles(exchange, symbol, profile):
+    '''ultime candele di un simbolo, solo quelle già chiuse'''
+    return remove_open_candle(get_candles(exchange, symbol, profile))
 
 def get_history(exchange, symbol, total_candles, profile):
     '''storico di candele chiuse, per la valutazione'''

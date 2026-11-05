@@ -68,7 +68,7 @@ utils/
   completers.py             Autocompletamento per i prompt
 
 signals/
-  indicators.py             Calcolo indicatori (RSI, SAR, volatilità oraria, ATR relativo): restituiscono serie di valori
+  indicators.py             Calcolo indicatori (RSI, SAR, volatilità oraria, ATR relativo e in %, volume relativo): restituiscono serie di valori
   signals_generator.py      Trasforma un indicatore in un segnale (es. OVERSOLD)
   signal_types.py           Costanti dei segnali (BUY, SELL, OVERBOUGHT, LONG, SHORT, BOTH, ...)
   votes.py                  Voto di ogni indicatore acceso + conteggio (decide LONG/SHORT)
@@ -189,14 +189,18 @@ Quelli risolti sono barrati.
 
 ## 6. Roadmap
 
-### Stato del lavoro (aggiornato al 5 novembre 2026) — DA LEGGERE PER RIPARTIRE
+### Stato del lavoro (aggiornato al 6 novembre 2026) — DA LEGGERE PER RIPARTIRE
 - **PR #22 e #23** (sicurezza, fonte Yahoo): fuse in `main`.
 - **Branch `evaluate-exits`**: `evaluate` simula un trade per ogni segnale, con le uscite di `EVAL_EXITS`
   (a tempo, a percentuale, con o senza stop). Da fare: push e PR verso `main`.
-- **Branch `atr-percent`**: indicatore `atr_percent` (spento nei gruppi). Da fare: push e PR verso `main`.
-  Prossimo passo: indicatori sul volume, partendo dal volume anomalo.
-- **Misure del 5 novembre 2026 (1h, solo prove)**: RSI estremo, ATR % e giro del SAR non hanno dato un vantaggio
-  stabile. Le regole migliori sulle watchlist non hanno retto su 20 altri titoli USA, 20 italiani e 35 crypto:
+- **Branch `atr-percent`**: indicatore `atr_percent` (spento nei gruppi), già su GitHub. Da fare: PR verso `main`.
+- **Branch `volume-climax`** (parte da `atr-percent`): candele chiuse nello spotter, indicatore `volume` (`spike`, `climax`),
+  letture con media mobile per RSI e volume, livelli impostabili per RSI `trend`. Tutto spento nei gruppi. Da fare: push e PR.
+- **Primo candidato, da confermare**: RSI sotto 40 con la sua media che sale, soprattutto con volume che scende
+  (con stop e obiettivo in ATR). Ha tenuto il segno sulle watchlist e su 20 altri titoli USA e 20 italiani, non sulle
+  crypto, ma con vantaggio piccolo (+0,1/+0,2% sul caso) e t sotto 2: non basta ancora per operare.
+- **Misure del 5 novembre 2026 (1h, solo prove)**: RSI estremo, ATR %, giro del SAR e volume anomalo non hanno dato
+  un vantaggio stabile. Le regole migliori sulle watchlist non hanno retto su 20 altri titoli USA, 20 italiani e 35 crypto:
   la lista USA contiene titoli già vincitori. Con obiettivo 3 ATR e stop 1,5 ATR lo stop scatta circa 2 volte su 3
   anche a caso: non basta a dimostrare il "coltello che cade".
   **Regola per i prossimi indicatori: fissare la regola sulle watchlist, poi provarla su titoli mai usati.**
@@ -249,10 +253,10 @@ Come funziona (implementato in `signals/votes.py`):
 - [x] Niente avvisi ripetuti: stesso simbolo e stessa direzione non vengono reinviati prima di
       `alert_cooldown_minutes` (60, nei profili). Se la direzione cambia l'avviso parte subito.
       La memoria degli avvisi si azzera al riavvio dello spotter.
-- [ ] Da osservare: il SAR può ribaltarsi LONG/SHORT su una candela ancora in corso
-      (visto su QNT, stesso prezzo a pochi secondi di distanza) e far ripartire l'avviso.
-      Se diventa fastidioso: cooldown per simbolo indipendente dalla direzione, oppure
-      calcolare gli indicatori solo sulle candele chiuse (escludendo l'ultima, ancora in corso).
+- [x] Solo candele chiuse nello spotter (`get_closed_candles` in `utils/sources.py`): gli indicatori non vedono più
+      la candela in corso, come in `evaluate`. Risolve anche il SAR che si ribaltava a metà candela.
+      L'ultima candela di borsa dura meno di un'ora ma conta come intera: viene letta fino a 30 minuti dopo la chiusura.
+      Da controllare a mercato aperto: con i dati di Milano in ritardo di 15 minuti, appena chiusa può essere incompleta.
 - [x] Indicatori attivabili (`INDICATORS`) e combinazione: tutti (`MIN_SIGNALS = 'all'`)
       oppure almeno N (`MIN_SIGNALS = 2`). Avviso tipo "3 indicatori su 5".
 - [ ] SAR vota sempre (LONG o SHORT) e la volatilità vota BOTH: con `MIN_SIGNALS` basso
@@ -261,7 +265,7 @@ Come funziona (implementato in `signals/votes.py`):
 - In seguito: attivare/disattivare indicatori dal prompt senza modificare il file.
 
 - [x] Modi di voto (`'mode'` in `INDICATORS`): lo stesso indicatore può votare in modi diversi.
-      RSI: `'reversal'` (ipervenduto = LONG) o `'trend'` (sopra 50 = LONG).
+      RSI: `'reversal'` (ipervenduto = LONG) o `'trend'` (sopra `trend_long` = LONG, sotto `trend_short` = SHORT, di default 50).
       SAR: `'direction'` (vota sempre) o `'flip'` (vota solo se si è girato nelle ultime
       `flip_candles` candele). Si possono mescolare apposta (es. trend + inversione =
       "compra il ribasso dentro un trend").
@@ -286,7 +290,12 @@ Come funziona (implementato in `signals/votes.py`):
 - [ ] Altre uscite con indicatori: da costruire, come gran parte degli indicatori di ingresso (per ora solo prove).
 - [x] ATR % (`atr_percent` in `INDICATORS`, spento di default): filtro "il titolo si muove abbastanza?".
       La soglia dipende dal timeframe. Verificato: stessi segnali tra griglia di prova ed `evaluate`.
-- [ ] Aggiungere, uno alla volta e solo dopo averli misurati: medie mobili, volume anomalo,
+- [x] Volume anomalo (`volume` in `INDICATORS`, spento di default): volume diviso per la media dello stesso momento
+      della giornata. `spike` = filtro, `climax` = esaurimento (candela in calo con volume alto = LONG).
+- [x] Letture di una linea con la sua media mobile (`read_line` in `signals_generator.py`), per RSI e volume, accanto ai
+      modi classici: `rising`, `ma_rising`, `above`, `cross`, con `ma_type` 'sma' o 'ema' e `ma_period`.
+      Con EMA, `ma_rising` e `above` danno lo stesso risultato: per come è costruita, l'EMA sale solo se la linea le sta sopra.
+- [ ] Aggiungere, uno alla volta e solo dopo averli misurati: medie mobili, volume profile come obiettivo di uscita,
       ADX come filtro, rottura di canale, funding rate.
 - Regola: **un indicatore per gruppo** (vedi tabella delle ridondanze nel documento),
   per non far votare più volte la stessa idea.
@@ -370,6 +379,10 @@ su Kraken (azioni USA) o Trade Republic. L'algoritmico resta su Kraken (crypto e
   restare fermo per ore, e indicatori come la volatilità ne risentono.
 - Kraken ha limiti di richieste piuttosto stretti: tenere `enableRateLimit: True`
   e non fare cicli senza pausa.
+- **Volume di Milano su Yahoo (verificato a novembre 2026)**: a 1h la candela delle 9:00 ha volume zero nel 98% dei
+  casi, mentre a 15m c'è. Anche sommando tutte le candele intraday il totale è molto sotto quello giornaliero (PRY.MI,
+  4 novembre: 1,29 contro 2,11 milioni), probabilmente perché mancano le aste. Il volume USA ha una prima ora
+  da circa 2,5 volte il normale: va confrontato con la stessa ora dei giorni precedenti.
 - Per restare generici: usare **solo metodi ccxt unificati** (`fetch_ohlcv`,
   `fetch_ticker`, `create_order`, ...) e controllare `exchange.ccxt.has[...]`
   prima di usare funzioni che non tutti gli exchange supportano.
