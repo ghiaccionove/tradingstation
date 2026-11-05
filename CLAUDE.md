@@ -193,10 +193,13 @@ Quelli risolti sono barrati.
 - **PR #22 e #23** (sicurezza, fonte Yahoo): fuse in `main`.
 - **Branch `evaluate-exits`**: `evaluate` simula un trade per ogni segnale, con le uscite di `EVAL_EXITS`
   (a tempo, a percentuale, con o senza stop). Da fare: push e PR verso `main`.
-- **Prima di cambiare le soglie**: l'idea dell'utente è movimento più grande -> rimbalzo più grande.
-  Nuovi indicatori, uno alla volta: **per primo ATR %** (il titolo si muove abbastanza?), poi un segnale di
-  inversione come conferma: RSI estremo da solo è "prendere un coltello mentre cade". Il relativo resta per
-  capire se il momento è insolito; da valutare l'obiettivo come parte del movimento.
+- **Branch `atr-percent`**: indicatore `atr_percent` (spento nei gruppi). Da fare: push e PR verso `main`.
+  Prossimo passo: indicatori sul volume, partendo dal volume anomalo.
+- **Misure del 5 novembre 2026 (1h, solo prove)**: RSI estremo, ATR % e giro del SAR non hanno dato un vantaggio
+  stabile. Le regole migliori sulle watchlist non hanno retto su 20 altri titoli USA, 20 italiani e 35 crypto:
+  la lista USA contiene titoli già vincitori. Con obiettivo 3 ATR e stop 1,5 ATR lo stop scatta circa 2 volte su 3
+  anche a caso: non basta a dimostrare il "coltello che cade".
+  **Regola per i prossimi indicatori: fissare la regola sulle watchlist, poi provarla su titoli mai usati.**
   Le soglie e gli indicatori di `INDICATORS_AZIONI` sono ancora solo di prova.
 - **Prossimi passi, in ordine** (sezione "Avvisi anche sulle azioni tradizionali" qui sotto):
   1. **Orari di borsa**: a borsa chiusa lo spotter analizza le ultime candele disponibili
@@ -281,6 +284,8 @@ Come funziona (implementato in `signals/votes.py`):
 - [x] Stop e obiettivo anche in multipli di ATR (`stop_loss_atr`, `take_profit_atr`): si sceglie per ognuno
       percentuale fissa oppure ATR. Si usa l'ATR in % della candela di entrata, poi il livello resta fisso.
 - [ ] Altre uscite con indicatori: da costruire, come gran parte degli indicatori di ingresso (per ora solo prove).
+- [x] ATR % (`atr_percent` in `INDICATORS`, spento di default): filtro "il titolo si muove abbastanza?".
+      La soglia dipende dal timeframe. Verificato: stessi segnali tra griglia di prova ed `evaluate`.
 - [ ] Aggiungere, uno alla volta e solo dopo averli misurati: medie mobili, volume anomalo,
       ADX come filtro, rottura di canale, funding rate.
 - Regola: **un indicatore per gruppo** (vedi tabella delle ridondanze nel documento),

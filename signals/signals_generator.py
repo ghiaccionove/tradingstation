@@ -44,6 +44,15 @@ def atr_signal(data, period=14, average_period=100, threshold=1.5):
         return Signal.LOW_VOLATILITY, latest_ratio
 
 
+def atr_percent_signal(data, period=14, threshold=0.5):
+    latest_atr_percent = indicators.atr_percent(data, period=period).iloc[-1]
+    logger.debug('ATR in percentuale: %s (soglia %s)', latest_atr_percent, threshold)
+    if latest_atr_percent > threshold:
+        return Signal.HIGH_VOLATILITY, latest_atr_percent
+    else:
+        return Signal.LOW_VOLATILITY, latest_atr_percent
+
+
 def rsi_trend_signal(data, period=14):
     '''RSI letto come trend: sopra 50 prevalgono i rialzi (UP), sotto 50 i ribassi (DOWN)'''
     latest_rsi = indicators.rsi(data, period=period).iloc[-1]
