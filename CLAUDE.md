@@ -190,16 +190,14 @@ Quelli risolti sono barrati.
 ## 6. Roadmap
 
 ### Stato del lavoro (aggiornato al 5 novembre 2026) — DA LEGGERE PER RIPARTIRE
-- **PR #22 `15-security-updates`** (aggiornamenti di sicurezza: ccxt 4.5.90, certifi, aiohttp,
-  multidict): aperta, **in attesa del merge** dell'utente. Chiude l'issue #15 e i 10 avvisi Dependabot.
-- **Branch `yahoo-source`** (fonte Yahoo + watchlist + profili `azioni_italia` / `azioni_usa`):
-  parte da `15-security-updates`, commit `feat: Yahoo data source and stock watchlists` fatto in locale.
-  Da fare: merge della #22, poi push e PR verso `main` (la PR conterrà solo questo commit).
-- **Decisione in sospeso prima di cambiare le soglie**: `evaluate` misura il prezzo dopo un numero fisso
-  di candele, senza obiettivo né uscita, quindi non dice quanto rende un trade vero. L'idea dell'utente:
-  movimento più grande -> rimbalzo più grande. Proposte: uscite in `evaluate` (obiettivo, stop, tempo massimo),
-  soglia sull'ATR in % del prezzo (il titolo si muove abbastanza?) oltre a quello relativo (è insolito?).
-  Le soglie di `INDICATORS_AZIONI` (34/66, ATR 1.5) sono ancora solo di prova.
+- **PR #22 e #23** (sicurezza, fonte Yahoo): fuse in `main`.
+- **Branch `evaluate-exits`**: `evaluate` simula un trade per ogni segnale, con le uscite di `EVAL_EXITS`
+  (a tempo, a percentuale, con o senza stop). Da fare: push e PR verso `main`.
+- **Prima di cambiare le soglie**: l'idea dell'utente è movimento più grande -> rimbalzo più grande.
+  Nuovi indicatori, uno alla volta: **per primo ATR %** (il titolo si muove abbastanza?), poi un segnale di
+  inversione come conferma: RSI estremo da solo è "prendere un coltello mentre cade". Il relativo resta per
+  capire se il momento è insolito; da valutare l'obiettivo come parte del movimento.
+  Le soglie e gli indicatori di `INDICATORS_AZIONI` sono ancora solo di prova.
 - **Prossimi passi, in ordine** (sezione "Avvisi anche sulle azioni tradizionali" qui sotto):
   1. **Orari di borsa**: a borsa chiusa lo spotter analizza le ultime candele disponibili
      (es. di sabato quelle di venerdì) e dopo un riavvio può reinviare un avviso vecchio.
@@ -270,10 +268,19 @@ Come funziona (implementato in `signals/votes.py`):
       volatilità, volume e dati dei perpetual (funding rate, open interest).
 - [x] Strumento di valutazione dei segnali (modalità `evaluate` in `main.py`):
       scorre lo storico candela per candela vedendo solo il passato, con la stessa logica
-      dello spotter; per ogni segnale misura il risultato dopo `EVAL_HORIZONS` candele al netto
+      dello spotter; per ogni segnale misura il risultato con le uscite di `EVAL_EXITS` al netto
       di `EVAL_FEE_PERCENT`, lo confronta con l'entrare "a caso" e divide la storia in due periodi.
       Elenco dei segnali in `evaluations/*.csv` (escluso da git).
       Verificato: nessuno sguardo al futuro, risultati corretti, blocco ripetizioni come lo spotter.
+- [x] Uscite in `evaluate` (`EVAL_EXITS`, al posto degli orizzonti fissi): ogni segnale è un trade con
+      uscita a tempo (obbligatoria), obiettivo in % e stop in % (facoltativi). Stessa candela con stop e
+      obiettivo = conta lo stop; salto oltre lo stop = si esce all'apertura. Il confronto "a caso" usa le
+      stesse uscite. Verificato su casi a mano e contro il vecchio `evaluate` (stessi segnali, stessi risultati a tempo).
+- [x] Prima uscita con indicatore in `evaluate`: RSI (`rsi_exit` in `EVAL_EXITS`), alla chiusura della candela.
+      Il confronto "a caso" esclude le candele in cui l'RSI è già al livello di uscita.
+- [x] Stop e obiettivo anche in multipli di ATR (`stop_loss_atr`, `take_profit_atr`): si sceglie per ognuno
+      percentuale fissa oppure ATR. Si usa l'ATR in % della candela di entrata, poi il livello resta fisso.
+- [ ] Altre uscite con indicatori: da costruire, come gran parte degli indicatori di ingresso (per ora solo prove).
 - [ ] Aggiungere, uno alla volta e solo dopo averli misurati: medie mobili, volume anomalo,
       ADX come filtro, rottura di canale, funding rate.
 - Regola: **un indicatore per gruppo** (vedi tabella delle ridondanze nel documento),
