@@ -33,6 +33,37 @@ def parabolic_sar(data, acceleration=0.02, maximum=0.2):
     '''SAR parabolico: un prezzo per candela, sotto il prezzo in trend rialzista e sopra in ribassista'''
     return talib.SAR(data['high'], data['low'], acceleration=acceleration, maximum=maximum)
 
+def moving_average(values, period, ma_type='sma'):
+    '''media mobile di una linea qualsiasi (RSI, volume, ...). 'sma' = semplice, 'ema' = reagisce prima'''
+    if ma_type == 'sma':
+        return values.rolling(period, min_periods=period // 2).mean()
+    if ma_type == 'ema':
+        return values.ewm(span=period, min_periods=period // 2).mean()
+    raise ValueError(f"ma_type '{ma_type}' non valido: usare 'sma' o 'ema'")
+
+def volume_line(data):
+    '''il volume di ogni candela. Volume zero = dato mancante (es. Yahoo a 1h per la candela delle 9 di Milano)'''
+    return data['volume'].replace(0, np.nan)
+
+def average_of_previous_days(volumes, days):
+    '''media dei volumi precedenti di una stessa posizione nella giornata (la candela stessa non conta)'''
+    return volumes.shift(1).rolling(days, min_periods=days // 2).mean()
+
+def volume_ratio(data, days=20):
+    '''
+    volume anomalo: volume di ogni candela diviso per la media delle candele nella stessa
+    posizione della giornata (es. la prima di ogni giorno) negli ultimi `days` giorni.
+    Es. 2.0 = il doppio del normale per quel momento. Serve perché ogni giornata ha il suo andamento:
+    sulle azioni USA la prima ora ha di norma 2,5 volte il volume delle altre, senza che sia anomalo.
+    Si usa la posizione e non l'orario: con il cambio dell'ora legale l'orario UTC si sposta.
+    Volume zero = dato mancante (es. Yahoo a 1h per la candela delle 9 di Milano): lì il risultato resta vuoto.
+    '''
+    volumes = volume_line(data)
+    days_of_candles = data['timestamp'] // 86400000
+    position_in_day = volumes.groupby(days_of_candles).cumcount()
+    averages = volumes.groupby(position_in_day).transform(average_of_previous_days, days)
+    return volumes / averages
+
 def atr_percent(data, period=14):
     '''NATR = ATR in percentuale del prezzo: ampiezza media delle ultime `period` candele, confrontabile tra titoli'''
     return talib.NATR(data['high'], data['low'], data['close'], timeperiod=period)

@@ -60,8 +60,13 @@ EVAL_FEE_PERCENT = 0.10
 # Ogni indicatore acceso "vota" una direzione:
 #   rsi        -> mode 'reversal' (inversione): LONG se ipervenduto (sotto 'oversold'),
 #                                               SHORT se ipercomprato (sopra 'overbought')
-#                 mode 'trend': LONG se RSI sopra 50, SHORT se sotto 50
-#                               ('overbought' e 'oversold' non vengono usati)
+#                 mode 'trend': LONG se RSI sopra 'trend_long', SHORT se sotto 'trend_short'. Tra i due nessun voto
+#                               (con 50 e 50 vota quasi sempre). 'overbought' e 'oversold' non vengono usati.
+#                 mode 'rising', 'ma_rising', 'above', 'cross': l'RSI insieme alla sua media mobile ('ma_type' 'sma' o
+#                               'ema', 'ma_period' candele). LONG se l'RSI sale ('rising'), se la media sale ('ma_rising'),
+#                               se è sopra la media ('above') o se la incrocia verso l'alto ('cross'); SHORT il contrario.
+#                               'oversold' e 'overbought' qui sono limiti: il LONG vale solo con RSI sotto 'oversold',
+#                               lo SHORT solo sopra 'overbought'. None = nessun limite.
 #   sar        -> mode 'direction': vota sempre, LONG se il prezzo è sopra il SAR, SHORT se è sotto
 #                 mode 'flip' (inversione): vota solo se il SAR si è girato nelle ultime
 #                               'flip_candles' candele (LONG se girato al rialzo, SHORT se al ribasso)
@@ -76,25 +81,39 @@ EVAL_FEE_PERCENT = 0.10
 #   atr_percent -> ATR in % del prezzo: quanto è grande una candela, per capire se il titolo si muove abbastanza.
 #                 Se supera 'threshold' conferma entrambe le direzioni (BOTH). 0.5 = candele ampie in media lo 0,5%.
 #                 Attenzione: dipende dal timeframe, una soglia pensata per 1h non vale per 15m.
+#   volume     -> volume anomalo: volume della candela diviso per la media dello stesso momento della giornata
+#                 negli ultimi 'days' giorni (2.0 = il doppio del normale). Servono candele per almeno 'days'/2 giorni:
+#                 su 1m e 5m CANDLES_LIMIT non basta e l'indicatore non vota mai.
+#                 mode 'spike': se supera 'threshold' conferma entrambe le direzioni (BOTH)
+#                 mode 'climax' (esaurimento): volume oltre 'threshold' in una delle ultime 'recent_candles' candele:
+#                               LONG se quella candela ha chiuso in calo, SHORT se ha chiuso in salita
+#                 mode 'rising', 'ma_rising', 'above', 'cross': il volume insieme alla sua media mobile ('ma_type',
+#                               'ma_period'). Il volume non indica una direzione: conferma entrambe (BOTH) se fa ciò
+#                               che chiede 'direction': 'up' = sale, media che sale, sopra la media o incrocio verso
+#                               l'alto; 'down' = il contrario (volume che si spegne).
+#                               Attenzione: sulle azioni il volume ha un andamento fisso nella giornata (alto
+#                               all'apertura), quindi queste letture dipendono anche dall'ora.
 #
 # Ogni gruppo di impostazioni ha un nome e si usa nei profili (sotto).
 # Per provare una strategia diversa: copiare il dizionario, dargli un altro nome,
 # cambiare i valori e usarlo nel profilo voluto.
 INDICATORS_BASE = {
-    'rsi':        {'enabled': True, 'mode': 'reversal', 'period': 14, 'overbought': 66, 'oversold': 34},
+    'rsi':        {'enabled': True, 'mode': 'reversal', 'period': 14, 'overbought': 66, 'oversold': 34, 'trend_long': 50, 'trend_short': 50, 'ma_type': 'sma', 'ma_period': 14},
     'sar':        {'enabled': True, 'mode': 'direction', 'acceleration': 0.02, 'maximum': 0.2, 'flip_candles': 3},
     'volatility': {'enabled': True, 'period': 60, 'threshold': 0.013},
     'atr':        {'enabled': False, 'period': 14, 'average_period': 100, 'threshold': 1.5},
     'atr_percent': {'enabled': False, 'period': 14, 'threshold': 0.5},
+    'volume':     {'enabled': False, 'mode': 'climax', 'days': 20, 'threshold': 2.0, 'recent_candles': 3, 'ma_type': 'sma', 'ma_period': 20, 'direction': 'up'},
 }
 
 # Azioni: RSI + ATR relativo. La volatilità all'1,3% orario è da crypto: sulle azioni non scatta quasi mai.
 INDICATORS_AZIONI = {
-    'rsi':        {'enabled': True, 'mode': 'reversal', 'period': 14, 'overbought': 66, 'oversold': 34},
+    'rsi':        {'enabled': True, 'mode': 'reversal', 'period': 14, 'overbought': 66, 'oversold': 34, 'trend_long': 50, 'trend_short': 50, 'ma_type': 'sma', 'ma_period': 14},
     'sar':        {'enabled': False, 'mode': 'direction', 'acceleration': 0.02, 'maximum': 0.2, 'flip_candles': 3},
     'volatility': {'enabled': False, 'period': 60, 'threshold': 0.013},
     'atr':        {'enabled': True, 'period': 14, 'average_period': 100, 'threshold': 1.5},
     'atr_percent': {'enabled': False, 'period': 14, 'threshold': 0.5},
+    'volume':     {'enabled': False, 'mode': 'climax', 'days': 20, 'threshold': 2.0, 'recent_candles': 3, 'ma_type': 'sma', 'ma_period': 20, 'direction': 'up'},
 }
 
 # --- Profili ---

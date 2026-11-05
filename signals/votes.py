@@ -8,6 +8,11 @@ Poi si contano i voti: se abbastanza indicatori sono d'accordo, c'è un segnale.
 from signals.signal_types import Signal
 from signals.signals_generator import rsi_signal, rsi_trend_signal, parabolic_trend, parabolic_flip
 from signals.signals_generator import volatility_signal, atr_signal, atr_percent_signal
+from signals.signals_generator import volume_spike_signal, volume_climax_signal
+from signals.signals_generator import rsi_line_signal, volume_line_signal
+
+# modi che leggono una linea insieme alla sua media mobile (vedi read_line in signals_generator.py)
+LINE_MODES = ['rising', 'ma_rising', 'above', 'cross']
 
 
 # --- Il voto di ogni indicatore ---
@@ -24,14 +29,24 @@ def rsi_vote(data, settings):
             return Signal.SHORT
         return None
     if mode == 'trend':
-        # trend: sopra 50 prevalgono i rialzi (LONG), sotto 50 i ribassi (SHORT)
-        signal = rsi_trend_signal(data, period=settings['period'])
+        # trend: sopra 'trend_long' prevalgono i rialzi (LONG), sotto 'trend_short' i ribassi (SHORT)
+        signal = rsi_trend_signal(data, period=settings['period'], trend_long=settings['trend_long'],
+                                  trend_short=settings['trend_short'])
         if signal == Signal.UP:
             return Signal.LONG
         if signal == Signal.DOWN:
             return Signal.SHORT
         return None
-    raise ValueError(f"mode '{mode}' non valido per rsi: usare 'reversal' o 'trend'")
+    if mode in LINE_MODES:
+        # l'RSI insieme alla sua media mobile: sale o incrocia verso l'alto -> LONG, il contrario -> SHORT
+        signal = rsi_line_signal(data, mode, settings['ma_type'], settings['ma_period'], period=settings['period'],
+                                 oversold=settings['oversold'], overbought=settings['overbought'])
+        if signal == Signal.UP:
+            return Signal.LONG
+        if signal == Signal.DOWN:
+            return Signal.SHORT
+        return None
+    raise ValueError(f"mode '{mode}' non valido per rsi: usare 'reversal', 'trend' o uno tra {LINE_MODES}")
 
 def sar_vote(data, settings):
     mode = settings['mode']
@@ -74,6 +89,37 @@ def atr_percent_vote(data, settings):
         return Signal.BOTH
     return None
 
+def volume_vote(data, settings):
+    mode = settings['mode']
+    if mode == 'spike':
+        # filtro: volume anomalo adesso, conferma entrambe le direzioni
+        signal = volume_spike_signal(data, days=settings['days'], threshold=settings['threshold'])
+        if signal == Signal.HIGH_VOLUME:
+            return Signal.BOTH
+        return None
+    if mode == 'climax':
+        # esaurimento: crollo con volume enorme -> i venditori possono aver finito (LONG), e viceversa
+        signal = volume_climax_signal(data, days=settings['days'], threshold=settings['threshold'],
+                                      recent_candles=settings['recent_candles'])
+        if signal == Signal.DOWN:
+            return Signal.LONG
+        if signal == Signal.UP:
+            return Signal.SHORT
+        return None
+    if mode in LINE_MODES:
+        # il volume non dice da che parte andare: se fa ciò che chiede 'direction' conferma entrambe le direzioni
+        signal = volume_line_signal(data, mode, settings['ma_type'], settings['ma_period'])
+        if settings['direction'] == 'up':
+            wanted = Signal.UP
+        elif settings['direction'] == 'down':
+            wanted = Signal.DOWN
+        else:
+            raise ValueError(f"direction '{settings['direction']}' non valida per volume: usare 'up' o 'down'")
+        if signal == wanted:
+            return Signal.BOTH
+        return None
+    raise ValueError(f"mode '{mode}' non valido per volume: usare 'spike', 'climax' o uno tra {LINE_MODES}")
+
 
 # --- Raccolta e conteggio dei voti ---
 
@@ -95,6 +141,8 @@ def get_votes(data, indicators):
         votes['atr'] = atr_vote(data, indicators['atr'])
     if indicators['atr_percent']['enabled']:
         votes['atr_percent'] = atr_percent_vote(data, indicators['atr_percent'])
+    if indicators['volume']['enabled']:
+        votes['volume'] = volume_vote(data, indicators['volume'])
     return votes
 
 def get_required_signals(enabled_count, min_signals):

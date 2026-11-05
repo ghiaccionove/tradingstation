@@ -8,6 +8,7 @@ class Signal:
     DOWN = 'DOWN'
     HIGH_VOLATILITY = 'HIGH_VOLATILITY'
     LOW_VOLATILITY = 'LOW_VOLATILITY'
+    HIGH_VOLUME = 'HIGH_VOLUME'
 
     # voti degli indicatori (usati in signals/votes.py)
     LONG = 'LONG'
