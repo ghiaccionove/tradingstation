@@ -7,7 +7,7 @@ Poi si contano i voti: se abbastanza indicatori sono d'accordo, c'è un segnale.
 '''
 from signals.signal_types import Signal
 from signals.signals_generator import rsi_signal, rsi_trend_signal, parabolic_trend, parabolic_flip
-from signals.signals_generator import volatility_signal, atr_signal
+from signals.signals_generator import volatility_signal, atr_signal, atr_percent_signal
 
 
 # --- Il voto di ogni indicatore ---
@@ -67,6 +67,13 @@ def atr_vote(data, settings):
         return Signal.BOTH
     return None
 
+def atr_percent_vote(data, settings):
+    signal, latest_atr_percent = atr_percent_signal(data, period=settings['period'],
+                                                    threshold=settings['threshold'])
+    if signal == Signal.HIGH_VOLATILITY:
+        return Signal.BOTH
+    return None
+
 
 # --- Raccolta e conteggio dei voti ---
 
@@ -86,6 +93,8 @@ def get_votes(data, indicators):
         votes['volatility'] = volatility_vote(data, indicators['volatility'])
     if indicators['atr']['enabled']:
         votes['atr'] = atr_vote(data, indicators['atr'])
+    if indicators['atr_percent']['enabled']:
+        votes['atr_percent'] = atr_percent_vote(data, indicators['atr_percent'])
     return votes
 
 def get_required_signals(enabled_count, min_signals):

@@ -73,6 +73,9 @@ EVAL_FEE_PERCENT = 0.10
 #                 1.0 = normale, 1.5 = il 50% più agitato del solito (succede ~10% delle volte).
 #                 'period' = candele per l'ATR, 'average_period' = candele per la media "normale".
 #                 È un'alternativa a 'volatility': di solito se ne accende solo uno dei due.
+#   atr_percent -> ATR in % del prezzo: quanto è grande una candela, per capire se il titolo si muove abbastanza.
+#                 Se supera 'threshold' conferma entrambe le direzioni (BOTH). 0.5 = candele ampie in media lo 0,5%.
+#                 Attenzione: dipende dal timeframe, una soglia pensata per 1h non vale per 15m.
 #
 # Ogni gruppo di impostazioni ha un nome e si usa nei profili (sotto).
 # Per provare una strategia diversa: copiare il dizionario, dargli un altro nome,
@@ -82,6 +85,7 @@ INDICATORS_BASE = {
     'sar':        {'enabled': True, 'mode': 'direction', 'acceleration': 0.02, 'maximum': 0.2, 'flip_candles': 3},
     'volatility': {'enabled': True, 'period': 60, 'threshold': 0.013},
     'atr':        {'enabled': False, 'period': 14, 'average_period': 100, 'threshold': 1.5},
+    'atr_percent': {'enabled': False, 'period': 14, 'threshold': 0.5},
 }
 
 # Azioni: RSI + ATR relativo. La volatilità all'1,3% orario è da crypto: sulle azioni non scatta quasi mai.
@@ -90,6 +94,7 @@ INDICATORS_AZIONI = {
     'sar':        {'enabled': False, 'mode': 'direction', 'acceleration': 0.02, 'maximum': 0.2, 'flip_candles': 3},
     'volatility': {'enabled': False, 'period': 60, 'threshold': 0.013},
     'atr':        {'enabled': True, 'period': 14, 'average_period': 100, 'threshold': 1.5},
+    'atr_percent': {'enabled': False, 'period': 14, 'threshold': 0.5},
 }
 
 # --- Profili ---
