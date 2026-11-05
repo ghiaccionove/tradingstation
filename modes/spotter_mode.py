@@ -1,7 +1,7 @@
 import time
 from logger import logger
 from utils.data_fetcher import count_active_candles
-from utils.sources import get_symbols, get_candles
+from utils.sources import get_symbols, get_closed_candles
 from signals.votes import get_votes, decide, get_required_signals
 from settings import PROFILES
 
@@ -41,7 +41,7 @@ def check_symbol(exchange, symbol, profile, last_alerts):
     non deve fermare tutto lo spotter.
     '''
     try:
-        data = get_candles(exchange, symbol, profile)
+        data = get_closed_candles(exchange, symbol, profile)
         if len(data) == 0:
             logger.debug('%s: nessuna candela, lo salto', symbol)
             return False
