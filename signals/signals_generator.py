@@ -37,8 +37,8 @@ def parabolic_trend(data, acceleration=0.02, maximum=0.2):
 
 def atr_signal(data, period=14, average_period=100, threshold=1.5):
     latest_ratio = indicators.atr_ratio(data, period=period, average_period=average_period).iloc[-1]
+    logger.debug('ATR relativo: %s (soglia %s)', latest_ratio, threshold)
     if latest_ratio > threshold:
-        logger.debug('ATR relativo sopra la soglia: %s', latest_ratio)
         return Signal.HIGH_VOLATILITY, latest_ratio
     else:
         return Signal.LOW_VOLATILITY, latest_ratio

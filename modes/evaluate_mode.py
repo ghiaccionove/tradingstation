@@ -10,7 +10,8 @@ import os
 import time
 import pandas as pd
 from logger import logger
-from utils.data_fetcher import select_symbols, fetch_history, count_active_candles
+from utils.data_fetcher import count_active_candles
+from utils.sources import get_symbols, get_history
 from signals.votes import get_votes, decide
 from signals.signal_types import Signal
 from signals.indicators import get_candle_minutes
@@ -32,7 +33,7 @@ def evaluate(exchange, profile_name):
     try:
         profile = PROFILES[profile_name]
         logger.info('Profilo: %s', profile_name)
-        symbols = select_symbols(exchange, profile['filter'], profile['category'])
+        symbols = get_symbols(exchange, profile)
         log_indicator_settings(profile)
         logger.info('Valutazione su %s candele da %s per simbolo', EVAL_CANDLES, profile['timeframe'])
         all_signals = []
@@ -42,7 +43,7 @@ def evaluate(exchange, profile_name):
             number = number + 1
             logger.info('[%s/%s] %s', number, len(symbols), symbol)
             try:
-                data = fetch_history(exchange, symbol, EVAL_CANDLES, profile['timeframe'])
+                data = get_history(exchange, symbol, EVAL_CANDLES, profile)
                 signals, candles = evaluate_symbol(data, symbol, profile)
                 all_signals = all_signals + signals
                 all_candles = all_candles + candles
