@@ -24,8 +24,20 @@ MIN_VOLUME_TRADFI = 300000
 # Quante candele storiche scaricare per ogni simbolo (es. 3000 candele da 15m = circa 31 giorni)
 EVAL_CANDLES = 3000
 
-# Dopo quante candele misurare cosa ha fatto il prezzo (es. 4 candele da 15m = 1 ora)
-EVAL_HORIZONS = [1, 4, 12, 24]
+# Come esce ogni trade simulato. Ogni riga è una prova: vengono misurate tutte, così si confrontano.
+#   'max_candles' -> uscita a tempo: dopo quante candele si esce comunque, alla chiusura (obbligatorio).
+#                    Si contano candele: a 1h un giorno di borsa è circa 8 candele, una settimana circa 40
+#                    (le crypto sono sempre aperte: 24 e 168).
+#   'take_profit' -> uscita a percentuale: obiettivo di guadagno, in % dal prezzo di entrata. None = nessun obiettivo
+#   'stop_loss'   -> perdita massima, in % dal prezzo di entrata. None = nessuno stop
+EVAL_EXITS = {
+    'giorno':                   {'max_candles': 8,  'take_profit': None, 'stop_loss': None},
+    'giorno_obiettivo':         {'max_candles': 8,  'take_profit': 1.5,  'stop_loss': None},
+    'giorno_obiettivo_stop':    {'max_candles': 8,  'take_profit': 1.5,  'stop_loss': 1.0},
+    'settimana':                {'max_candles': 40, 'take_profit': None, 'stop_loss': None},
+    'settimana_obiettivo':      {'max_candles': 40, 'take_profit': 1.5,  'stop_loss': None},
+    'settimana_obiettivo_stop': {'max_candles': 40, 'take_profit': 1.5,  'stop_loss': 1.0},
+}
 
 # Commissioni di andata e ritorno, in percentuale.
 # Kraken Futures: 0.05% per ordine 'taker' (al mercato) -> 0.10% tra entrata e uscita
