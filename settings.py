@@ -1,6 +1,8 @@
 # Impostazioni di trading.
 # A differenza di config.py (chiavi e segreti), questo file È salvato su git.
 
+from watchlists import WATCHLIST_ITALIA, WATCHLIST_USA
+
 # --- Spotter ---
 
 # Timeframe, indicatori, mercati, pausa, avvisi ripetuti e mercati fermi
@@ -60,13 +62,25 @@ INDICATORS_BASE = {
     'atr':        {'enabled': False, 'period': 14, 'average_period': 100, 'threshold': 1.5},
 }
 
+# Azioni: RSI + ATR relativo. La volatilità all'1,3% orario è da crypto: sulle azioni non scatta quasi mai.
+INDICATORS_AZIONI = {
+    'rsi':        {'enabled': True, 'mode': 'reversal', 'period': 14, 'overbought': 66, 'oversold': 34},
+    'sar':        {'enabled': False, 'mode': 'direction', 'acceleration': 0.02, 'maximum': 0.2, 'flip_candles': 3},
+    'volatility': {'enabled': False, 'period': 60, 'threshold': 0.013},
+    'atr':        {'enabled': True, 'period': 14, 'average_period': 100, 'threshold': 1.5},
+}
+
 # --- Profili ---
 
 # All'avvio di spotter ed evaluate si sceglie un profilo. Ogni profilo dice:
-#   'category'    -> quali mercati: 'crypto', 'tradfi' oppure 'all'
-#   'filter'      -> 'volume' = solo i simboli sopra MIN_VOLUME / MIN_VOLUME_TRADFI, 'all' = tutti
+#   'source'      -> da dove arrivano i dati: 'kraken' (exchange in config.py) oppure 'yahoo' (azioni, ETF)
+#   'category'    -> solo Kraken: quali mercati, 'crypto', 'tradfi' oppure 'all'
+#   'filter'      -> solo Kraken: 'volume' = solo i simboli sopra MIN_VOLUME / MIN_VOLUME_TRADFI, 'all' = tutti
+#   'symbols'     -> solo Yahoo: la lista dei titoli da controllare (vedi watchlists.py)
 #   'timeframe'   -> durata di ogni candela.
 #                    Valori possibili su Kraken: '1m', '5m', '15m', '30m', '1h', '4h', '12h', '1d', '1w'
+#                    Valori possibili su Yahoo: '1m' (storico 7 giorni), '5m', '15m', '30m' (60 giorni),
+#                    '1h' (2 anni), '1d'
 #   'indicators'  -> quale gruppo di indicatori usare (vedi sopra)
 #   'min_signals' -> quanti indicatori accesi devono essere d'accordo per far partire un avviso:
 #                    'all' = tutti quelli accesi (es. 3 su 3), un numero, es. 2 = almeno 2 (es. 2 su 3)
@@ -84,6 +98,7 @@ INDICATORS_BASE = {
 # Per seguire più profili insieme: avviare il programma in più terminali.
 PROFILES = {
     'crypto': {
+        'source': 'kraken',
         'category': 'crypto',
         'filter': 'volume',
         'timeframe': '1m',
@@ -96,6 +111,7 @@ PROFILES = {
         'min_active_candles': 10,
     },
     'tradfi': {
+        'source': 'kraken',
         'category': 'tradfi',
         'filter': 'volume',
         'timeframe': '1m',
@@ -108,6 +124,7 @@ PROFILES = {
         'min_active_candles': 10,
     },
     'all': {
+        'source': 'kraken',
         'category': 'all',
         'filter': 'volume',
         'timeframe': '1m',
@@ -117,6 +134,32 @@ PROFILES = {
         'pause_seconds': 60,
         'alert_cooldown_minutes': 60,
         'activity_candles': 60,
+        'min_active_candles': 10,
+    },
+    # Azioni: le borse sono aperte poche ore al giorno (Milano 9-17:30, USA 15:30-22 ora italiana).
+    # I dati di Milano arrivano con circa 15 minuti di ritardo.
+    'azioni_italia': {
+        'source': 'yahoo',
+        'symbols': WATCHLIST_ITALIA,
+        'timeframe': '1h',
+        'indicators': INDICATORS_AZIONI,
+        'min_signals': 'all',
+        'platform': 'Trade Republic',
+        'pause_seconds': 300,
+        'alert_cooldown_minutes': 240,
+        'activity_candles': 20,
+        'min_active_candles': 10,
+    },
+    'azioni_usa': {
+        'source': 'yahoo',
+        'symbols': WATCHLIST_USA,
+        'timeframe': '1h',
+        'indicators': INDICATORS_AZIONI,
+        'min_signals': 'all',
+        'platform': 'Kraken / Trade Republic',
+        'pause_seconds': 300,
+        'alert_cooldown_minutes': 240,
+        'activity_candles': 20,
         'min_active_candles': 10,
     },
 }

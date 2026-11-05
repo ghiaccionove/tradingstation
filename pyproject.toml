@@ -12,6 +12,7 @@ dependencies = [
     "numpy>=1.26.4,<2",
     "prompt-toolkit>=3.0.51,<4",
     "requests>=2.34.2,<3",
+    "yfinance>=1.7.0,<2",
 ]
 
 [tool.uv]

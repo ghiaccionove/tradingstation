@@ -53,6 +53,7 @@ generico grazie a `ccxt` (il nome dell'exchange è un parametro, non va scritto
 main.py                     Punto di ingresso: chiede la modalità e il profilo (prompt_toolkit)
 config.py                   Chiavi API, token Telegram, exchange (NON versionato, in .gitignore)
 settings.py                 Impostazioni di trading: pausa, volume, gruppi di indicatori, PROFILES (versionato)
+watchlists.py               Liste di titoli per i profili Yahoo (es. WATCHLIST_ITALIA, WATCHLIST_USA)
 logger.py                   Logger: file + console + Telegram (livello WARNING)
 
 alerts/
@@ -61,7 +62,9 @@ alerts/
 
 utils/
   exchange_manager.py       Classe Exchange: crea l'istanza ccxt (+ xStocks su Kraken)
-  data_fetcher.py           Scarica candele (OHLCV), lista simboli, filtro per volume
+  data_fetcher.py           Kraken (ccxt): scarica candele (OHLCV), lista simboli, filtro per volume
+  yahoo_fetcher.py          Yahoo (yfinance): candele di azioni ed ETF, nello stesso formato di ccxt
+  sources.py                Sceglie la fonte (Kraken o Yahoo) in base al profilo: simboli, candele, storico
   completers.py             Autocompletamento per i prompt
 
 signals/
@@ -89,12 +92,15 @@ orders/
 ```
 
 Flusso attuale dello spotter:
-`main.py` → scelta del profilo (`PROFILES` in `settings.py`) → `spotter()` → `fetch_symbols` → (filtro volume) → loop:
-`fetch_market_data` → `get_votes` → `decide` → (se c'è un segnale) `logger.warning` → Telegram.
+`main.py` → scelta del profilo (`PROFILES` in `settings.py`) → `spotter()` → `get_symbols`
+(Kraken: `fetch_symbols` + filtro volume; Yahoo: la watchlist del profilo) → loop:
+`get_candles` → `get_votes` → `decide` → (se c'è un segnale) `logger.warning` → Telegram.
 
-Un **profilo** raccoglie categoria di mercati, filtro, timeframe, gruppo di indicatori,
-`min_signals` e piattaforma su cui operare. Le funzioni ricevono il profilo come parametro
-invece di leggere le impostazioni direttamente da `settings.py`.
+Un **profilo** raccoglie fonte dei dati (`'kraken'` o `'yahoo'`), mercati o watchlist, timeframe,
+gruppo di indicatori, `min_signals`, piattaforma su cui operare, pausa, attesa tra avvisi ripetuti
+e filtro dei mercati fermi. Le funzioni ricevono il profilo come parametro invece di leggere
+le impostazioni direttamente da `settings.py`. Le candele hanno sempre lo stesso formato
+(`timestamp` in millisecondi, `open`, `high`, `low`, `close`, `volume`), qualunque sia la fonte.
 
 Esempio di avviso: `SHORT su ADA/USD:USD a 0.24594 - 2 indicatori su 3 (sar, volatility) [Kraken]`
 
@@ -172,10 +178,38 @@ Quelli risolti sono barrati.
     (`settings.py`, 10 su 60). Su 1m sono saltati ~127 perpetual su 204: hanno pochissimi scambi.
 18. ~~**Simbolo senza candele**~~ — RISOLTO: saltato prima di calcolare gli indicatori.
     A fine giro lo spotter scrive quanti simboli ha controllato e quanti ha saltato.
+19. **Ticker degli xStocks su Kraken spot incompleti**: chiedendo i ticker di tutti i 177
+    xStocks insieme ne arrivano solo 12 (succedeva anche con ccxt 4.5.85; provato di sabato).
+    Oggi non pesa (usiamo Kraken Futures), ma con un profilo sugli xStocks spot il filtro
+    volume ne scarterebbe quasi tutti. Da capire prima di usare `EXCHANGE_NAME = 'kraken'`.
+20. **Spotter a borsa chiusa** (profili Yahoo, ma anche le tradfi di Kraken): analizza le ultime
+    candele disponibili come se fossero attuali. È il prossimo passo della roadmap (orari di borsa).
 
 ---
 
 ## 6. Roadmap
+
+### Stato del lavoro (aggiornato al 5 novembre 2026) — DA LEGGERE PER RIPARTIRE
+- **PR #22 `15-security-updates`** (aggiornamenti di sicurezza: ccxt 4.5.90, certifi, aiohttp,
+  multidict): aperta, **in attesa del merge** dell'utente. Chiude l'issue #15 e i 10 avvisi Dependabot.
+- **Branch `yahoo-source`** (fonte Yahoo + watchlist + profili `azioni_italia` / `azioni_usa`):
+  parte da `15-security-updates`, commit `feat: Yahoo data source and stock watchlists` fatto in locale.
+  Da fare: merge della #22, poi push e PR verso `main` (la PR conterrà solo questo commit).
+- **Decisione in sospeso prima di cambiare le soglie**: `evaluate` misura il prezzo dopo un numero fisso
+  di candele, senza obiettivo né uscita, quindi non dice quanto rende un trade vero. L'idea dell'utente:
+  movimento più grande -> rimbalzo più grande. Proposte: uscite in `evaluate` (obiettivo, stop, tempo massimo),
+  soglia sull'ATR in % del prezzo (il titolo si muove abbastanza?) oltre a quello relativo (è insolito?).
+  Le soglie di `INDICATORS_AZIONI` (34/66, ATR 1.5) sono ancora solo di prova.
+- **Prossimi passi, in ordine** (sezione "Avvisi anche sulle azioni tradizionali" qui sotto):
+  1. **Orari di borsa**: a borsa chiusa lo spotter analizza le ultime candele disponibili
+     (es. di sabato quelle di venerdì) e dopo un riavvio può reinviare un avviso vecchio.
+     Idea semplice: saltare il simbolo se l'ultima candela è più vecchia di qualche candela
+     (es. 2-3 volte la durata del timeframe), senza calendari delle borse. Vale anche per Kraken.
+  2. **Indicatori per le azioni**: creare un gruppo `INDICATORS_AZIONI` (la volatilità all'1,3%
+     orario è da crypto: sulle azioni non scatta quasi mai) e misurarlo con `evaluate` su 15m e 1h.
+     Prima spostare `EVAL_FEE_PERCENT` nei profili: Trade Republic ha 1 € fisso per ordine, non 0,10%.
+  3. In seguito: altre watchlist (Xetra `.DE`, ETF UCITS), un indicatore nuovo alla volta
+     (vedi "Nuovi indicatori"), poi Fase 2.
 
 ### Fase 0 — Rimettere in piedi la base
 - [x] `config.py`: aggiungere `EXCHANGE_NAME`; creare un `config_example.py` versionato
@@ -255,11 +289,17 @@ su Kraken (azioni USA) o Trade Republic. L'algoritmico resta su Kraken (crypto e
 - [x] Nei profili anche `pause_seconds`, `alert_cooldown_minutes`, `activity_candles` e
       `min_active_candles`, da adattare al timeframe (con 1h, 60 candele = 60 ore).
       Restano comuni solo le impostazioni di `evaluate` e del volume.
-- [ ] Fonte dati Yahoo (`yfinance`, da approvare come dipendenza) con lo stesso DataFrame
-      di ccxt, e watchlist fisse (es. FTSE MIB, titoli USA, ETF).
-      Provato: 1m per ~8 giorni, 1h per ~2 anni, Milano con ~15 min di ritardo.
+- [x] Fonte dati Yahoo (`yfinance`) con lo stesso DataFrame di ccxt (`utils/yahoo_fetcher.py`,
+      `utils/sources.py`) e watchlist fisse in `watchlists.py` (15 titoli FTSE MIB, 10 USA).
+      Profili `azioni_italia` (Trade Republic) e `azioni_usa` (Kraken / Trade Republic), su 1h,
+      con il gruppo `INDICATORS_AZIONI` (RSI + ATR relativo).
+      Storico: 1m 7 giorni, 5m/15m/30m 60 giorni, 1h 2 anni. Milano con ~15 min di ritardo.
+      Verificato: spotter ed evaluate funzionano; i profili Kraken non cambiano.
 - [ ] Orari di borsa: saltare i titoli se l'ultima candela è troppo vecchia.
-- [ ] `evaluate` sulle azioni, per scegliere timeframe e indicatori.
+- [ ] `evaluate` sulle azioni, per scegliere timeframe e indicatori. Prima prova (FTSE MIB, 15m,
+      `INDICATORS_BASE`): solo 4 segnali in 2 mesi, perché la soglia di volatilità (1,3% all'ora)
+      è pensata per le crypto. Serve un gruppo di indicatori per le azioni.
+      Anche `EVAL_FEE_PERCENT` è quella di Kraken: Trade Republic ha 1 € fisso per ordine.
 
 ### Fase 2 — Ordini manuali in reazione agli avvisi
 - Dall'avviso proporre un ordine precompilato (simbolo, lato) da confermare a mano.
