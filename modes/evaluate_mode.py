@@ -4,7 +4,7 @@ Modalità 'evaluate': valuta i segnali sui dati storici.
 Scorre la storia candela per candela vedendo solo il passato, esattamente come farebbe
 lo spotter dal vivo (stessi voti, stessa finestra di candele, stesso filtro sui mercati
 fermi, stesso blocco degli avvisi ripetuti). Ogni segnale diventa un trade simulato, con
-le uscite scelte in EVAL_EXITS (settings.py): a tempo, a percentuale, con o senza stop loss.
+le uscite scelte in EVAL_EXITS (settings.py): a tempo, a percentuale, con indicatore, con o senza stop loss.
 Il risultato si confronta con l'entrare "a caso" nella stessa direzione e con le stesse uscite.
 '''
 import os
@@ -15,7 +15,7 @@ from utils.data_fetcher import count_active_candles
 from utils.sources import get_symbols, get_history
 from signals.votes import get_votes, decide
 from signals.signal_types import Signal
-from signals.indicators import get_candle_minutes
+from signals.indicators import get_candle_minutes, rsi, atr_percent
 from modes.spotter_mode import log_indicator_settings
 from settings import PROFILES, CANDLES_LIMIT
 from settings import EVAL_CANDLES, EVAL_EXITS, EVAL_FEE_PERCENT
@@ -32,6 +32,7 @@ RESULTS_FOLDER = 'evaluations'
 
 def evaluate(exchange, profile_name):
     try:
+        check_exit_settings()
         profile = PROFILES[profile_name]
         logger.info('Profilo: %s', profile_name)
         symbols = get_symbols(exchange, profile)
@@ -58,6 +59,15 @@ def evaluate(exchange, profile_name):
         logger.info('Valutazione interrotta')
 
 
+def check_exit_settings():
+    '''stop e obiettivo si scelgono in percentuale fissa OPPURE in multipli di ATR: entrambi sarebbe ambiguo'''
+    for name, exit_settings in EVAL_EXITS.items():
+        if exit_settings['stop_loss'] is not None and exit_settings['stop_loss_atr'] is not None:
+            raise ValueError(f"uscita '{name}': scegliere 'stop_loss' oppure 'stop_loss_atr', non entrambi")
+        if exit_settings['take_profit'] is not None and exit_settings['take_profit_atr'] is not None:
+            raise ValueError(f"uscita '{name}': scegliere 'take_profit' oppure 'take_profit_atr', non entrambi")
+
+
 def get_longest_trade():
     '''la durata massima tra le uscite scelte, in candele'''
     longest = 0
@@ -74,15 +84,36 @@ def trade_percent(entry_price, price, direction):
     return change
 
 
+def rsi_exit_reached(latest_rsi, level, direction):
+    '''l'RSI è arrivato al livello di uscita? Un LONG esce quando sale fin lì, uno SHORT quando scende fin lì'''
+    if direction == Signal.LONG:
+        return latest_rsi >= level
+    return latest_rsi <= level
+
+
+def get_exit_levels(prices, t, exit_settings):
+    '''
+    stop e obiettivo del trade, in % dal prezzo di entrata (None = nessuno).
+    Quelli in multipli di ATR usano l'ATR della candela di entrata e poi restano fissi per tutto il trade.
+    '''
+    stop_loss = exit_settings['stop_loss']
+    take_profit = exit_settings['take_profit']
+    if exit_settings['stop_loss_atr'] is not None:
+        stop_loss = exit_settings['stop_loss_atr'] * prices['atr_percent'][t]
+    if exit_settings['take_profit_atr'] is not None:
+        take_profit = exit_settings['take_profit_atr'] * prices['atr_percent'][t]
+    return stop_loss, take_profit
+
+
 def simulate_trade(prices, t, direction, exit_settings):
     '''
     simula un trade entrato alla chiusura della candela t, guardando una alla volta le candele successive.
     Restituisce il risultato in % (al netto delle commissioni), il motivo dell'uscita
-    ('stop', 'target' o 'time') e per quante candele il trade è rimasto aperto.
+    ('stop', 'target', 'indicator' o 'time') e per quante candele il trade è rimasto aperto.
     '''
     entry_price = prices['close'][t]
-    stop_loss = exit_settings['stop_loss']
-    take_profit = exit_settings['take_profit']
+    stop_loss, take_profit = get_exit_levels(prices, t, exit_settings)
+    rsi_exit = exit_settings['rsi_exit']
     for candles_held in range(1, exit_settings['max_candles'] + 1):
         i = t + candles_held
         if direction == Signal.LONG:
@@ -99,7 +130,10 @@ def simulate_trade(prices, t, direction, exit_settings):
             return min(-stop_loss, open_result) - EVAL_FEE_PERCENT, 'stop', candles_held
         if take_profit is not None and trade_percent(entry_price, best_price, direction) >= take_profit:
             return take_profit - EVAL_FEE_PERCENT, 'target', candles_held
-    # né stop né obiettivo: si esce alla chiusura dell'ultima candela
+        # l'RSI si conosce solo a candela chiusa: per questo viene dopo stop e obiettivo, toccati durante la candela
+        if rsi_exit is not None and rsi_exit_reached(prices['rsi'][i], rsi_exit, direction):
+            return trade_percent(entry_price, prices['close'][i], direction) - EVAL_FEE_PERCENT, 'indicator', candles_held
+    # nessuna altra uscita: si esce alla chiusura dell'ultima candela
     last_price = prices['close'][t + exit_settings['max_candles']]
     return trade_percent(entry_price, last_price, direction) - EVAL_FEE_PERCENT, 'time', exit_settings['max_candles']
 
@@ -119,11 +153,14 @@ def evaluate_symbol(data, symbol, profile):
 
     closes = data['close']
     # liste semplici: i trade simulati leggono molti prezzi e così è molto più veloce
+    # (ci sono anche RSI e ATR: ogni valore dipende solo dalle candele fino a lì, quindi nessuno sguardo al futuro)
     prices = {
         'open': data['open'].tolist(),
         'high': data['high'].tolist(),
         'low': data['low'].tolist(),
         'close': closes.tolist(),
+        'rsi': rsi(data, period=profile['indicators']['rsi']['period']).tolist(),
+        'atr_percent': atr_percent(data, period=profile['indicators']['atr']['period']).tolist(),
     }
     cooldown_candles = profile['alert_cooldown_minutes'] / get_candle_minutes(data)
     last_direction = None
@@ -148,6 +185,11 @@ def evaluate_symbol(data, symbol, profile):
         candle = {'time': candle_time, 'period': period}
         for name, exit_settings in EVAL_EXITS.items():
             for direction in [Signal.LONG, Signal.SHORT]:
+                rsi_exit = exit_settings['rsi_exit']
+                if rsi_exit is not None and rsi_exit_reached(prices['rsi'][t], rsi_exit, direction):
+                    # l'uscita è già raggiunta all'entrata: il trade si chiuderebbe subito e falserebbe il confronto
+                    candle[f'{name}_{direction}'] = float('nan')
+                    continue
                 result, reason, candles_held = simulate_trade(prices, t, direction, exit_settings)
                 candle[f'{name}_{direction}'] = result
         candles.append(candle)
@@ -184,7 +226,8 @@ def print_report(signals, candles, timeframe):
     print('RISULTATI DELLA VALUTAZIONE')
     print(f'Timeframe {timeframe}. Risultati in % al netto delle commissioni ({EVAL_FEE_PERCENT}% andata e ritorno).')
     print('"A caso" = entrare in una candela qualsiasi, nella stessa direzione, nello stesso periodo e con le stesse uscite.')
-    print('Uscite = quanti trade sono usciti su obiettivo / stop / a tempo. Candele = durata media del trade.')
+    print('Con uscita RSI, "a caso" conta solo le candele in cui l\'RSI non è già al livello di uscita.')
+    print('Uscite = quanti trade sono usciti su obiettivo / stop / indicatore / a tempo. Candele = durata media del trade.')
     print('=' * 100)
     if len(signals) == 0:
         print('Nessun segnale trovato.')
@@ -213,14 +256,16 @@ def print_exit_line(name, selected, random_results):
     '''scrive la riga del report per una uscita: risultato dei segnali, come sono usciti e confronto "a caso"'''
     results = selected[f'{name}_result']
     reasons = selected[f'{name}_reason']
+    random_results = random_results.dropna()   # le candele escluse dal confronto (vedi evaluate_symbol)
     target_percent = (reasons == 'target').mean() * 100
     stop_percent = (reasons == 'stop').mean() * 100
+    indicator_percent = (reasons == 'indicator').mean() * 100
     time_percent = (reasons == 'time').mean() * 100
     winners = (results > 0).mean() * 100
     random_winners = (random_results > 0).mean() * 100
     difference = results.mean() - random_results.mean()
     print(f'   {name:<26} media {results.mean():+.2f}%  vincenti {winners:3.0f}%'
-          f'  uscite {target_percent:3.0f}/{stop_percent:3.0f}/{time_percent:3.0f}%'
+          f'  uscite {target_percent:3.0f}/{stop_percent:3.0f}/{indicator_percent:3.0f}/{time_percent:3.0f}%'
           f'  candele {selected[f"{name}_candles"].mean():4.1f}'
           f'  |  a caso: media {random_results.mean():+.2f}%  vincenti {random_winners:3.0f}%'
           f'  |  differenza {difference:+.2f}%')

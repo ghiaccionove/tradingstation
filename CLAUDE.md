@@ -194,8 +194,9 @@ Quelli risolti sono barrati.
 - **Branch `evaluate-exits`**: `evaluate` simula un trade per ogni segnale, con le uscite di `EVAL_EXITS`
   (a tempo, a percentuale, con o senza stop). Da fare: push e PR verso `main`.
 - **Prima di cambiare le soglie**: l'idea dell'utente è movimento più grande -> rimbalzo più grande.
-  Da fare, un passo alla volta: uscita con indicatori in `evaluate`; soglia sull'ATR in % del prezzo
-  (il titolo si muove abbastanza?) oltre a quello relativo (è insolito?); obiettivo come parte del movimento.
+  Nuovi indicatori, uno alla volta: **per primo ATR %** (il titolo si muove abbastanza?), poi un segnale di
+  inversione come conferma: RSI estremo da solo è "prendere un coltello mentre cade". Il relativo resta per
+  capire se il momento è insolito; da valutare l'obiettivo come parte del movimento.
   Le soglie e gli indicatori di `INDICATORS_AZIONI` sono ancora solo di prova.
 - **Prossimi passi, in ordine** (sezione "Avvisi anche sulle azioni tradizionali" qui sotto):
   1. **Orari di borsa**: a borsa chiusa lo spotter analizza le ultime candele disponibili
@@ -275,7 +276,11 @@ Come funziona (implementato in `signals/votes.py`):
       uscita a tempo (obbligatoria), obiettivo in % e stop in % (facoltativi). Stessa candela con stop e
       obiettivo = conta lo stop; salto oltre lo stop = si esce all'apertura. Il confronto "a caso" usa le
       stesse uscite. Verificato su casi a mano e contro il vecchio `evaluate` (stessi segnali, stessi risultati a tempo).
-- [ ] Uscita con indicatori in `evaluate` (da costruire).
+- [x] Prima uscita con indicatore in `evaluate`: RSI (`rsi_exit` in `EVAL_EXITS`), alla chiusura della candela.
+      Il confronto "a caso" esclude le candele in cui l'RSI è già al livello di uscita.
+- [x] Stop e obiettivo anche in multipli di ATR (`stop_loss_atr`, `take_profit_atr`): si sceglie per ognuno
+      percentuale fissa oppure ATR. Si usa l'ATR in % della candela di entrata, poi il livello resta fisso.
+- [ ] Altre uscite con indicatori: da costruire, come gran parte degli indicatori di ingresso (per ora solo prove).
 - [ ] Aggiungere, uno alla volta e solo dopo averli misurati: medie mobili, volume anomalo,
       ADX come filtro, rottura di canale, funding rate.
 - Regola: **un indicatore per gruppo** (vedi tabella delle ridondanze nel documento),

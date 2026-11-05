@@ -30,13 +30,23 @@ EVAL_CANDLES = 3000
 #                    (le crypto sono sempre aperte: 24 e 168).
 #   'take_profit' -> uscita a percentuale: obiettivo di guadagno, in % dal prezzo di entrata. None = nessun obiettivo
 #   'stop_loss'   -> perdita massima, in % dal prezzo di entrata. None = nessuno stop
+#   'take_profit_atr', 'stop_loss_atr' -> gli stessi, ma in multipli dell'ATR in % della candela di entrata.
+#                    Es. 1.5 con ATR 2% = 3% dal prezzo di entrata: si adattano da soli a ogni titolo e momento.
+#                    Per ognuno dei due si sceglie percentuale fissa OPPURE ATR, l'altro resta None.
+#   'rsi_exit'    -> uscita con indicatore: livello dell'RSI a cui si esce, alla chiusura della candela.
+#                    Un LONG esce quando l'RSI sale fin lì, uno SHORT quando scende fin lì. None = nessuna uscita con RSI
 EVAL_EXITS = {
-    'giorno':                   {'max_candles': 8,  'take_profit': None, 'stop_loss': None},
-    'giorno_obiettivo':         {'max_candles': 8,  'take_profit': 1.5,  'stop_loss': None},
-    'giorno_obiettivo_stop':    {'max_candles': 8,  'take_profit': 1.5,  'stop_loss': 1.0},
-    'settimana':                {'max_candles': 40, 'take_profit': None, 'stop_loss': None},
-    'settimana_obiettivo':      {'max_candles': 40, 'take_profit': 1.5,  'stop_loss': None},
-    'settimana_obiettivo_stop': {'max_candles': 40, 'take_profit': 1.5,  'stop_loss': 1.0},
+    'giorno':                   {'max_candles': 8,  'take_profit': None, 'stop_loss': None, 'take_profit_atr': None, 'stop_loss_atr': None, 'rsi_exit': None},
+    'giorno_obiettivo':         {'max_candles': 8,  'take_profit': 1.5,  'stop_loss': None, 'take_profit_atr': None, 'stop_loss_atr': None, 'rsi_exit': None},
+    'giorno_obiettivo_stop':    {'max_candles': 8,  'take_profit': 1.5,  'stop_loss': 1.0,  'take_profit_atr': None, 'stop_loss_atr': None, 'rsi_exit': None},
+    'giorno_atr':               {'max_candles': 8,  'take_profit': None, 'stop_loss': None, 'take_profit_atr': 3.0,  'stop_loss_atr': 1.5,  'rsi_exit': None},
+    'settimana':                {'max_candles': 40, 'take_profit': None, 'stop_loss': None, 'take_profit_atr': None, 'stop_loss_atr': None, 'rsi_exit': None},
+    'settimana_obiettivo':      {'max_candles': 40, 'take_profit': 1.5,  'stop_loss': None, 'take_profit_atr': None, 'stop_loss_atr': None, 'rsi_exit': None},
+    'settimana_obiettivo_stop': {'max_candles': 40, 'take_profit': 1.5,  'stop_loss': 1.0,  'take_profit_atr': None, 'stop_loss_atr': None, 'rsi_exit': None},
+    'settimana_atr':            {'max_candles': 40, 'take_profit': None, 'stop_loss': None, 'take_profit_atr': 3.0,  'stop_loss_atr': 1.5,  'rsi_exit': None},
+    'settimana_rsi':            {'max_candles': 40, 'take_profit': None, 'stop_loss': None, 'take_profit_atr': None, 'stop_loss_atr': None, 'rsi_exit': 50},
+    'settimana_rsi_stop':       {'max_candles': 40, 'take_profit': None, 'stop_loss': 1.0,  'take_profit_atr': None, 'stop_loss_atr': None, 'rsi_exit': 50},
+    'settimana_rsi_stop_atr':   {'max_candles': 40, 'take_profit': None, 'stop_loss': None, 'take_profit_atr': None, 'stop_loss_atr': 1.5,  'rsi_exit': 50},
 }
 
 # Commissioni di andata e ritorno, in percentuale.
